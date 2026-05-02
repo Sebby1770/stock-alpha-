@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #070e1a;
+    color: #e2e8f0;
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #0d1526;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #243659;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2d4370;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-navy-800 border border-navy-600 rounded-xl shadow-card;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-navy-500 hover:shadow-card-hover hover:bg-navy-750;
+  }
+
+  .btn-primary {
+    @apply bg-brand-blue hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-navy-700 hover:bg-navy-600 border border-navy-500 text-slate-300 hover:text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-navy-700 text-slate-400 hover:text-slate-200 font-medium px-3 py-1.5 rounded-lg transition-colors text-sm;
+  }
+
+  .input {
+    @apply bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/30 transition-colors w-full;
+  }
+
+  .select {
+    @apply bg-navy-800 border border-navy-600 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/30 transition-colors w-full cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .stat-card {
+    @apply card p-4 flex flex-col gap-1;
+  }
+
+  .table-row {
+    @apply border-b border-navy-700 hover:bg-navy-750 transition-colors cursor-pointer;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-blue via-brand-indigo to-brand-purple;
+  }
+
+  .section-title {
+    @apply text-base font-semibold text-slate-200 flex items-center gap-2;
+  }
+
+  .positive {
+    @apply text-brand-green;
+  }
+
+  .negative {
+    @apply text-brand-red;
+  }
+
+  .neutral {
+    @apply text-slate-400;
+  }
+
+  .ticker-tape {
+    display: flex;
+    width: max-content;
+    animation: ticker 60s linear infinite;
+  }
+
+  .ticker-tape:hover {
+    animation-play-state: paused;
+  }
+
+  .glow-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(99,102,241,0.04) 50%, transparent 100%);
+    border: 1px solid rgba(59,130,246,0.2);
+  }
+
+  .glass {
+    background: rgba(13, 21, 38, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(36, 54, 89, 0.5);
+  }
+
+  .factor-bar-bg {
+    @apply h-1.5 rounded-full bg-navy-600 overflow-hidden;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s ease-out forwards;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Recharts overrides */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(36, 54, 89, 0.5);
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.recharts-default-tooltip {
+  background: #0d1526 !important;
+  border: 1px solid #243659 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4) !important;
+}
+
+.recharts-tooltip-label {
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+}
+
+.recharts-tooltip-item {
+  color: #e2e8f0 !important;
+  font-size: 13px !important;
+}
