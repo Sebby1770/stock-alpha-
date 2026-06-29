@@ -1,10 +1,22 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SlidersHorizontal, Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  SlidersHorizontal,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  TrendingUp,
+  TrendingDown,
+  Download,
+  Target,
+  ShieldCheck,
+} from 'lucide-react';
 import { stocks, sectors } from '../data/stocks';
 import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
+import { enrichStock, toPercent } from '../utils/analytics';
 import clsx from 'clsx';
 
 const fmtBig = (n) => {
@@ -84,6 +96,46 @@ export default function Screener() {
       });
   }, [query, sector, mcap, minGrade, minScore, sortKey, sortDir]);
 
+  const enrichedFiltered = useMemo(() => filtered.map(enrichStock), [filtered]);
+
+  const screenStats = useMemo(() => {
+    const avg = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
+    const top = [...enrichedFiltered].sort((a, b) => b.signalScore - a.signalScore)[0];
+    return {
+      top,
+      averageSignal: avg(enrichedFiltered.map((stock) => stock.signalScore)),
+      averageUpside: avg(enrichedFiltered.map((stock) => stock.upside)),
+      lowRisk: enrichedFiltered.filter((stock) => stock.riskScore < 35).length,
+    };
+  }, [enrichedFiltered]);
+
+  const exportResults = () => {
+    const rows = [
+      ['Ticker', 'Name', 'Sector', 'Price', 'Quant Grade', 'Quant Score', 'Signal Score', 'Upside', 'Risk Score', 'P/E', 'Dividend Yield'],
+      ...enrichedFiltered.map((s) => [
+        s.ticker,
+        s.name,
+        s.sector,
+        s.price.toFixed(2),
+        s.quantGrade,
+        s.quantScore.toFixed(2),
+        s.signalScore.toFixed(1),
+        s.upside.toFixed(1),
+        s.riskScore.toFixed(1),
+        s.pe.toFixed(1),
+        s.dividendYield.toFixed(2),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'alpharank-screener.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('desc'); }
@@ -109,13 +161,22 @@ export default function Screener() {
             Filter and rank {stocks.length} stocks by quant factors, valuation, and momentum
           </p>
         </div>
-        <button
-          onClick={() => setShowFilters((f) => !f)}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <SlidersHorizontal size={14} />
-          {showFilters ? 'Hide' : 'Show'} Filters
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportResults}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowFilters((f) => !f)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <SlidersHorizontal size={14} />
+            {showFilters ? 'Hide' : 'Show'} Filters
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -174,6 +235,41 @@ export default function Screener() {
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <Target size={14} className="text-brand-green" />
+            Best Current Signal
+          </div>
+          <div className="text-xl font-extrabold text-slate-100">
+            {screenStats.top ? screenStats.top.ticker : '--'}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            {screenStats.top ? `${screenStats.top.signalLabel} at ${screenStats.top.signalScore.toFixed(0)}/100` : 'No matches'}
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <TrendingUp size={14} className="text-brand-blue" />
+            Average Upside
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-blue">
+            {toPercent(screenStats.averageUpside)}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Across filtered results</div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <ShieldCheck size={14} className="text-brand-yellow" />
+            Low-Risk Matches
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-yellow">
+            {screenStats.lowRisk}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Risk score below 35</div>
+        </div>
+      </div>
 
       {/* Results count */}
       <div className="flex items-center gap-3 text-sm">

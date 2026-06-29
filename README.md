@@ -1,8 +1,8 @@
-# AlphaRank — Quant Stock Analysis Platform
+# AlphaRank - Quant Stock Analysis Platform
 
 > Advanced stock prediction & analysis platform with factor-based Quant Ratings, crowdsourced analysis, interactive charts, and an institutional-grade stock screener.
 
-![AlphaRank Screenshot](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Recharts](https://img.shields.io/badge/Recharts-2-red)
+![AlphaRank Screenshot](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-8-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Recharts](https://img.shields.io/badge/Recharts-2-red)
 
 ---
 
@@ -19,6 +19,15 @@
 - Sortable columns across all 14 data points
 - Mini sparkline charts inline in the table
 - Full 25-stock universe with realistic financial data
+- Signal-aware summary cards for best match, average upside, and low-risk matches
+- CSV export for the currently filtered result set
+
+### Signal Lab
+- Ranks every stock by quant score, analyst upside, volatility, drawdown, and community sentiment
+- Persistent browser watchlist stored in `localStorage`
+- Strategy backtests for balanced signal, pure quant, momentum, and value approaches
+- Sector signal map for comparing average opportunity and risk by sector
+- CSV export for the full signal model
 
 ### Crowdsourced Community
 - Long-form investment thesis posts with Buy/Hold/Sell ratings
@@ -47,7 +56,7 @@
 | Layer | Technology |
 |-------|-----------|
 | Framework | React 18 |
-| Build | Vite 5 |
+| Build | Vite 8 |
 | Styling | Tailwind CSS 3 |
 | Charts | Recharts 2 |
 | Routing | React Router v6 |
@@ -60,8 +69,8 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/stock-alpha.git
-cd stock-alpha
+git clone https://github.com/Sebby1770/stock-alpha-.git
+cd stock-alpha-
 
 # Install dependencies
 npm install
@@ -70,7 +79,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173/stock-alpha/](http://localhost:5173/stock-alpha/)
+Open [http://localhost:5173/stock-alpha-/](http://localhost:5173/stock-alpha-/)
 
 ---
 
@@ -92,7 +101,7 @@ npm run deploy
 1. Push to GitHub
 2. Run `npm run deploy` — this builds and pushes to the `gh-pages` branch
 3. In your repo settings → Pages → set source to `gh-pages` branch
-4. Your app will be live at `https://YOUR_USERNAME.github.io/stock-alpha/`
+4. Your app will be live at `https://sebby1770.github.io/stock-alpha-/`
 
 ---
 
@@ -116,10 +125,13 @@ src/
 │   ├── stocks.js             # 25 stocks with full data + seeded price history
 │   ├── market.js             # Indices, sectors, news
 │   └── community.js          # Community posts + top picks
+├── utils/
+│   └── analytics.js          # Signal scoring, risk, upside, and backtest helpers
 └── pages/
     ├── Dashboard.jsx         # Main dashboard
     ├── StockDetail.jsx       # Individual stock page (3 tabs)
     ├── Screener.jsx          # Filterable + sortable stock table
+    ├── Signals.jsx           # Signal lab, watchlist, and strategy backtests
     ├── Community.jsx         # Crowdsourced analysis feed
     └── Portfolio.jsx         # Portfolio tracker with equity curve
 ```

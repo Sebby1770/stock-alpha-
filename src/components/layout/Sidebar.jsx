@@ -14,13 +14,13 @@ import clsx from 'clsx';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/screener', icon: SlidersHorizontal, label: 'Screener' },
+  { to: '/signals', icon: Activity, label: 'Signals' },
   { to: '/community', icon: Users, label: 'Community' },
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
 ];
 
 const secondaryItems = [
   { to: '#', icon: Star, label: 'Watchlist' },
-  { to: '#', icon: Activity, label: 'Signals' },
   { to: '#', icon: Settings, label: 'Settings' },
 ];
 

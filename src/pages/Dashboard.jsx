@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Zap, Users, BarChart2,
-  ArrowUpRight, Newspaper, ChevronRight,
+  ArrowUpRight, Newspaper, ChevronRight, Activity,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { sectorPerformance, marketNews, indices } from '../data/market';
@@ -93,6 +93,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-3 mt-4">
             <button onClick={() => navigate('/screener')} className="btn-primary flex items-center gap-2">
               <BarChart2 size={15} /> Open Screener
+            </button>
+            <button onClick={() => navigate('/signals')} className="btn-secondary flex items-center gap-2">
+              <Activity size={15} /> Signal Lab
             </button>
             <button onClick={() => navigate('/community')} className="btn-secondary flex items-center gap-2">
               <Users size={15} /> Community Picks
