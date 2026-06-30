@@ -29,6 +29,13 @@
 - Sector signal map for comparing average opportunity and risk by sector
 - CSV export for the full signal model
 
+### Production Ops
+- Readiness cockpit for CI/CD, Docker staging, cloud hosting, caching, WAF/rate limiting, and observability
+- Runtime error boundary with local incident logging for frontend failure recovery
+- Docker + nginx staging image with health check, SPA fallback, static asset caching, and security headers
+- GitHub Actions workflow for install, audit, and production build checks
+- Kubernetes starter manifest and production runbook covering S3, CloudFront, SQS, Lambda, and DynamoDB paths
+
 ### Crowdsourced Community
 - Long-form investment thesis posts with Buy/Hold/Sell ratings
 - Price targets and community sentiment aggregation
@@ -114,6 +121,7 @@ src/
 ├── main.jsx                  # Entry point
 ├── components/
 │   ├── common/
+│   │   ├── ErrorBoundary.jsx # Runtime incident capture + recovery screen
 │   │   ├── FactorBar.jsx     # Factor score progress bars
 │   │   ├── MiniChart.jsx     # Sparkline area chart
 │   │   ├── QuantGrade.jsx    # A+→F letter grade badge
@@ -132,9 +140,27 @@ src/
     ├── StockDetail.jsx       # Individual stock page (3 tabs)
     ├── Screener.jsx          # Filterable + sortable stock table
     ├── Signals.jsx           # Signal lab, watchlist, and strategy backtests
+    ├── Ops.jsx               # Production readiness and deployment cockpit
     ├── Community.jsx         # Crowdsourced analysis feed
     └── Portfolio.jsx         # Portfolio tracker with equity curve
 ```
+
+---
+
+## Production Readiness
+
+```bash
+# CI-equivalent local checks
+npm ci
+npm audit --audit-level=high
+npm run build
+
+# Docker staging
+docker build -t alpharank .
+docker run --rm -p 8080:80 alpharank
+```
+
+See [`docs/production-runbook.md`](docs/production-runbook.md) for Docker, Kubernetes, S3/CloudFront, caching, firewall/rate-limit, SQS/Lambda, and DynamoDB notes.
 
 ---
 

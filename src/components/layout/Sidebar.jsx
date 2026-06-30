@@ -17,6 +17,7 @@ const navItems = [
   { to: '/signals', icon: Activity, label: 'Signals' },
   { to: '/community', icon: Users, label: 'Community' },
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
+  { to: '/ops', icon: Settings, label: 'Production Ops' },
 ];
 
 const secondaryItems = [
