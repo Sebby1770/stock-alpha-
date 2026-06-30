@@ -16,7 +16,10 @@ const basename = import.meta.env.BASE_URL === '/'
 
 export default function App() {
   return (
-    <BrowserRouter basename={basename}>
+    <BrowserRouter
+      basename={basename}
+      future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+    >
       <div className="min-h-screen bg-navy-900">
         <Navbar />
 
