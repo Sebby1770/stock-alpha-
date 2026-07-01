@@ -24,7 +24,7 @@
 
 ### Signal Lab
 - Ranks every stock by quant score, analyst upside, volatility, drawdown, and community sentiment
-- Persistent browser watchlist stored in `localStorage`
+- Persistent browser watchlist with versioned, guarded `localStorage`
 - Strategy backtests for balanced signal, pure quant, momentum, and value approaches
 - Sector signal map for comparing average opportunity and risk by sector
 - CSV export for the full signal model
@@ -32,9 +32,11 @@
 ### Production Ops
 - Readiness cockpit for CI/CD, Docker staging, cloud hosting, caching, WAF/rate limiting, and observability
 - Runtime error boundary with local incident logging for frontend failure recovery
+- Data delivery plan covering WebSockets, long polling, short polling, RPC snapshots, SQS workers, and Kafka/RabbitMQ fanout
+- Cache and partitioning plan for browser cache, CDN assets, quote API QPS, DynamoDB shards, and dead-letter debugging
 - Docker + nginx staging image with health check, SPA fallback, static asset caching, and security headers
 - GitHub Actions workflow for install, audit, and production build checks
-- Kubernetes starter manifest and production runbook covering S3, CloudFront, SQS, Lambda, and DynamoDB paths
+- Kubernetes starter manifest and production runbook covering S3, CloudFront, SQS, Lambda, Kafka/RabbitMQ, and DynamoDB paths
 
 ### Crowdsourced Community
 - Long-form investment thesis posts with Buy/Hold/Sell ratings
@@ -132,9 +134,11 @@ src/
 ├── data/
 │   ├── stocks.js             # 25 stocks with full data + seeded price history
 │   ├── market.js             # Indices, sectors, news
+│   ├── ops.js                # Production readiness, delivery, cache, and security model
 │   └── community.js          # Community posts + top picks
 ├── utils/
-│   └── analytics.js          # Signal scoring, risk, upside, and backtest helpers
+│   ├── analytics.js          # Signal scoring, risk, upside, and backtest helpers
+│   └── storage.js            # Versioned browser storage helpers
 └── pages/
     ├── Dashboard.jsx         # Main dashboard
     ├── StockDetail.jsx       # Individual stock page (3 tabs)
@@ -160,7 +164,7 @@ docker build -t alpharank .
 docker run --rm -p 8080:80 alpharank
 ```
 
-See [`docs/production-runbook.md`](docs/production-runbook.md) for Docker, Kubernetes, S3/CloudFront, caching, firewall/rate-limit, SQS/Lambda, and DynamoDB notes.
+See [`docs/production-runbook.md`](docs/production-runbook.md) for Docker, Kubernetes, S3/CloudFront, caching, firewall/rate-limit, WebSockets, long/short polling, SQS/Lambda, Kafka/RabbitMQ, and DynamoDB notes.
 
 ---
 

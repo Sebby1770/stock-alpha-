@@ -5,6 +5,7 @@ import {
   GitBranch,
   HardDrive,
   Lock,
+  Radio,
   Rocket,
   Settings,
   Shield,
@@ -22,9 +23,12 @@ import {
 } from 'recharts';
 import {
   architectureNodes,
+  cacheAndShardPlan,
   deploymentModes,
+  deliveryChannels,
   productionChecks,
   readinessSummary,
+  securityControls,
   serviceLevelTargets,
 } from '../data/ops';
 import clsx from 'clsx';
@@ -151,6 +155,91 @@ export default function Ops() {
           </div>
         </section>
       </div>
+
+      <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6">
+        <section className="2xl:col-span-2 card p-5">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <h2 className="section-title">
+              <Radio size={16} className="text-brand-green" />
+              Data Delivery Plane
+            </h2>
+            <span className="text-xs text-slate-500">websocket / polling / rpc / queue</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {deliveryChannels.map((channel) => (
+              <article key={channel.name} className="rounded-lg border border-navy-600 bg-navy-850 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-100">{channel.name}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{channel.notes}</p>
+                  </div>
+                  <span className="rounded bg-navy-700 px-2 py-1 font-mono text-xs text-brand-blue">{channel.latency}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="rounded border border-navy-600 bg-navy-950 px-3 py-2">
+                    <span className="block text-slate-500">Reliability</span>
+                    <strong className="text-slate-300">{channel.reliability}</strong>
+                  </div>
+                  <div className="rounded border border-navy-600 bg-navy-950 px-3 py-2">
+                    <span className="block text-slate-500">Fallback</span>
+                    <strong className="text-slate-300">{channel.fallback}</strong>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="card p-5">
+          <h2 className="section-title mb-4">
+            <Shield size={16} className="text-brand-yellow" />
+            Security Controls
+          </h2>
+          <div className="space-y-3">
+            {securityControls.map((item) => (
+              <div key={item.control} className="rounded-lg border border-navy-600 bg-navy-850 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-200">{item.control}</span>
+                  <StatusPill state={item.state} />
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">{item.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="card p-5">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="section-title">
+            <Database size={16} className="text-brand-purple" />
+            Cache & Partition Plan
+          </h2>
+          <span className="text-xs text-slate-500">caching proxy / sharding / throughput</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-navy-700 text-xs text-slate-500">
+                <th className="px-3 py-3 text-left font-medium">Layer</th>
+                <th className="px-3 py-3 text-left font-medium">Partition Key</th>
+                <th className="px-3 py-3 text-left font-medium">TTL</th>
+                <th className="px-3 py-3 text-left font-medium">Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cacheAndShardPlan.map((item) => (
+                <tr key={`${item.layer}-${item.key}`} className="border-b border-navy-800 last:border-0">
+                  <td className="px-3 py-3 font-semibold text-slate-200">{item.layer}</td>
+                  <td className="px-3 py-3 font-mono text-xs text-brand-blue">{item.key}</td>
+                  <td className="px-3 py-3 text-xs text-slate-400">{item.ttl}</td>
+                  <td className="px-3 py-3 text-xs text-slate-500">{item.purpose}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <section className="card p-5">

@@ -32,9 +32,10 @@ import {
   rankSignalCandidates,
   toPercent,
 } from '../utils/analytics';
+import { readJson, storageKey, writeJson } from '../utils/storage';
 import clsx from 'clsx';
 
-const WATCHLIST_KEY = 'alpharank-watchlist-v2';
+const WATCHLIST_KEY = storageKey('watchlist', 'v2');
 const fmtMoney = (value) => `$${Math.round(value).toLocaleString('en-US')}`;
 
 const signalColor = (score) => {
@@ -65,17 +66,13 @@ const downloadCsv = (name, rows) => {
 
 function useWatchlist() {
   const [watchlist, setWatchlist] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]');
-      return Array.isArray(saved) ? saved : [];
-    } catch {
-      return [];
-    }
+    const saved = readJson(WATCHLIST_KEY, []);
+    return Array.isArray(saved) ? saved : [];
   });
 
   const persist = (next) => {
     setWatchlist(next);
-    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
+    writeJson(WATCHLIST_KEY, next);
   };
 
   const toggle = (ticker) => {
