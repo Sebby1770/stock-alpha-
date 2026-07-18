@@ -6,8 +6,10 @@ import {
 } from 'lucide-react';
 import { getStockByTicker } from '../data/stocks';
 import { communityPosts } from '../data/community';
+import { DATA_SNAPSHOT } from '../data/metadata';
 import QuantGrade from '../components/common/QuantGrade';
 import { FactorScores } from '../components/common/FactorBar';
+import { formatDateOnly } from '../utils/dates';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -21,10 +23,7 @@ const fmtBig = (n) => {
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
   return `$${n}`;
 };
-const fmtDate = (str) => {
-  const d = new Date(str);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+const fmtDate = (value) => formatDateOnly(value, { month: 'short', day: 'numeric' });
 
 const ratingColor = {
   'Strong Buy': '#10b981',
@@ -132,13 +131,13 @@ export default function StockDetail() {
               {pos ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               {pos ? '+' : ''}{fmt(stock.change)} ({pos ? '+' : ''}{fmt(stock.changePercent)}%)
             </div>
-            <p className="text-xs text-slate-500 mt-1">Simulated • Delayed 15min</p>
+            <p className="text-xs text-slate-500 mt-1">Synthetic snapshot • {DATA_SNAPSHOT.label}</p>
           </div>
 
           {/* Right: analyst target */}
           <div className="card p-4 min-w-[160px] text-center bg-navy-700">
             <div className="flex items-center justify-center gap-1.5 mb-1 text-xs text-slate-400">
-              <Target size={12} /> Analyst Target
+              <Target size={12} /> Simulated Analyst Target
             </div>
             <div className="text-2xl font-extrabold font-mono text-slate-100">${stock.priceTarget}</div>
             <div className={clsx('text-sm font-semibold mt-0.5', parseFloat(upside) >= 0 ? 'text-brand-green' : 'text-brand-red')}>

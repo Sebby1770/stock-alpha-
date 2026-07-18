@@ -14,14 +14,14 @@ import clsx from 'clsx';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/screener', icon: SlidersHorizontal, label: 'Screener' },
+  { to: '/signals', icon: Activity, label: 'Signals' },
   { to: '/community', icon: Users, label: 'Community' },
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
+  { to: '/ops', icon: Settings, label: 'Production Ops' },
 ];
 
 const secondaryItems = [
-  { to: '#', icon: Star, label: 'Watchlist' },
-  { to: '#', icon: Activity, label: 'Signals' },
-  { to: '#', icon: Settings, label: 'Settings' },
+  { to: '/signals', icon: Star, label: 'Saved Signals' },
 ];
 
 export default function Sidebar() {
@@ -63,14 +63,14 @@ export default function Sidebar() {
           Tools
         </p>
         {secondaryItems.map(({ to, icon: Icon, label }) => (
-          <a
+          <NavLink
             key={label}
-            href={to}
+            to={to}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-300 hover:bg-navy-700 transition-all"
           >
             <Icon size={17} />
             {label}
-          </a>
+          </NavLink>
         ))}
       </nav>
 
@@ -79,14 +79,11 @@ export default function Sidebar() {
         <div className="rounded-xl bg-gradient-to-br from-brand-blue/10 to-brand-purple/10 border border-brand-blue/20 p-3 text-xs">
           <div className="flex items-center gap-1.5 mb-1.5 text-blue-300 font-semibold">
             <TrendingUp size={13} />
-            AlphaRank Pro
+            Educational Demo
           </div>
           <p className="text-slate-400 leading-relaxed">
-            Unlock real-time data, advanced screener, and earnings call transcripts.
+            Synthetic snapshot data only. No live feed, brokerage connection, or investment recommendation.
           </p>
-          <button className="mt-2.5 w-full btn-primary text-xs py-1.5">
-            Upgrade Free
-          </button>
         </div>
       </div>
     </aside>

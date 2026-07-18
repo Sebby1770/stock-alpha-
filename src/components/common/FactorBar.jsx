@@ -20,18 +20,27 @@ const labelForFactor = {
 export function FactorBar({ label, score, showLabel = true, compact = false }) {
   const pct = Math.min((score / 5) * 100, 100);
   const color = colorForScore(score);
+  const factorLabel = labelForFactor[label] ?? label;
 
   return (
     <div className={clsx('flex flex-col gap-1', compact ? '' : 'gap-1.5')}>
       {showLabel && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-400">{labelForFactor[label] ?? label}</span>
+          <span className="text-xs text-slate-400">{factorLabel}</span>
           <span className="text-xs font-semibold font-mono" style={{ color }}>
             {score.toFixed(1)}
           </span>
         </div>
       )}
-      <div className="h-1.5 rounded-full bg-navy-600 overflow-hidden">
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-navy-600"
+        role="progressbar"
+        aria-label={`${factorLabel} score`}
+        aria-valuemin={0}
+        aria-valuemax={5}
+        aria-valuenow={score}
+        aria-valuetext={`${score.toFixed(1)} out of 5`}
+      >
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, backgroundColor: color }}

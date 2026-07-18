@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+# Starter template only. Replace sha-REPLACE_ME with an immutable image tag
+# produced by your release pipeline before applying this manifest.
+metadata:
+  name: alpharank
+  labels:
+    app: alpharank
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: alpharank
+  template:
+    metadata:
+      labels:
+        app: alpharank
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ghcr.io/sebby1770/stock-alpha:sha-REPLACE_ME
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 80
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alpharank
+spec:
+  selector:
+    app: alpharank
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP

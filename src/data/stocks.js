@@ -13,16 +13,16 @@ const tickerSeed = (ticker) =>
 export const generatePriceHistory = (basePrice, ticker, days = 90) => {
   const rng = createRng(tickerSeed(ticker));
   const history = [];
-  const endDate = new Date('2026-05-02');
+  const endDate = new Date(Date.UTC(2026, 4, 2));
   const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - days);
+  startDate.setUTCDate(startDate.getUTCDate() - days);
 
   let price = basePrice * (0.80 + rng() * 0.28);
 
   for (let i = 0; i <= days; i++) {
     const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dow = date.getDay();
+    date.setUTCDate(date.getUTCDate() + i);
+    const dow = date.getUTCDay();
     if (dow === 0 || dow === 6) continue;
 
     const drift = 0.0003;
@@ -356,6 +356,8 @@ export const stocks = raw.map((s) => {
   const prevClose = priceHistory[priceHistory.length - 2]?.price ?? s.price;
   const change = Math.round((lastClose - prevClose) * 100) / 100;
   const changePercent = Math.round((change / prevClose) * 10000) / 100;
+  const observedLows = priceHistory.map((point) => point.low);
+  const observedHighs = priceHistory.map((point) => point.high);
 
   return {
     ...s,
@@ -365,6 +367,8 @@ export const stocks = raw.map((s) => {
     price: lastClose,
     change,
     changePercent,
+    weekLow52: Math.min(s.weekLow52, lastClose, ...observedLows),
+    weekHigh52: Math.max(s.weekHigh52, lastClose, ...observedHighs),
   };
 });
 

@@ -1,10 +1,22 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { SlidersHorizontal, Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  SlidersHorizontal,
+  Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  TrendingUp,
+  TrendingDown,
+  Download,
+  Target,
+  ShieldCheck,
+} from 'lucide-react';
 import { stocks, sectors } from '../data/stocks';
 import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
+import { enrichStock, toPercent } from '../utils/analytics';
 import clsx from 'clsx';
 
 const fmtBig = (n) => {
@@ -42,7 +54,6 @@ const COLS = [
 ];
 
 export default function Screener() {
-  const navigate = useNavigate();
 
   const [query, setQuery] = useState('');
   const [sector, setSector] = useState('All');
@@ -84,6 +95,46 @@ export default function Screener() {
       });
   }, [query, sector, mcap, minGrade, minScore, sortKey, sortDir]);
 
+  const enrichedFiltered = useMemo(() => filtered.map(enrichStock), [filtered]);
+
+  const screenStats = useMemo(() => {
+    const avg = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
+    const top = [...enrichedFiltered].sort((a, b) => b.signalScore - a.signalScore)[0];
+    return {
+      top,
+      averageSignal: avg(enrichedFiltered.map((stock) => stock.signalScore)),
+      averageUpside: avg(enrichedFiltered.map((stock) => stock.upside)),
+      lowRisk: enrichedFiltered.filter((stock) => stock.riskScore < 35).length,
+    };
+  }, [enrichedFiltered]);
+
+  const exportResults = () => {
+    const rows = [
+      ['Ticker', 'Name', 'Sector', 'Price', 'Quant Grade', 'Quant Score', 'Signal Score', 'Upside', 'Risk Score', 'P/E', 'Dividend Yield'],
+      ...enrichedFiltered.map((s) => [
+        s.ticker,
+        s.name,
+        s.sector,
+        s.price.toFixed(2),
+        s.quantGrade,
+        s.quantScore.toFixed(2),
+        s.signalScore.toFixed(1),
+        s.upside.toFixed(1),
+        s.riskScore.toFixed(1),
+        s.pe.toFixed(1),
+        s.dividendYield.toFixed(2),
+      ]),
+    ];
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'alpharank-screener.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('desc'); }
@@ -109,13 +160,22 @@ export default function Screener() {
             Filter and rank {stocks.length} stocks by quant factors, valuation, and momentum
           </p>
         </div>
-        <button
-          onClick={() => setShowFilters((f) => !f)}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <SlidersHorizontal size={14} />
-          {showFilters ? 'Hide' : 'Show'} Filters
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportResults}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowFilters((f) => !f)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <SlidersHorizontal size={14} />
+            {showFilters ? 'Hide' : 'Show'} Filters
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -175,6 +235,41 @@ export default function Screener() {
         </div>
       )}
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <Target size={14} className="text-brand-green" />
+            Top Snapshot Signal
+          </div>
+          <div className="text-xl font-extrabold text-slate-100">
+            {screenStats.top ? screenStats.top.ticker : '--'}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">
+            {screenStats.top ? `${screenStats.top.signalLabel} at ${screenStats.top.signalScore.toFixed(0)}/100` : 'No matches'}
+          </div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <TrendingUp size={14} className="text-brand-blue" />
+            Average Upside
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-blue">
+            {toPercent(screenStats.averageUpside)}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Across filtered results</div>
+        </div>
+        <div className="card p-4">
+          <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
+            <ShieldCheck size={14} className="text-brand-yellow" />
+            Low-Risk Matches
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-yellow">
+            {screenStats.lowRisk}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Risk score below 35</div>
+        </div>
+      </div>
+
       {/* Results count */}
       <div className="flex items-center gap-3 text-sm">
         <span className="text-slate-400">
@@ -199,17 +294,24 @@ export default function Screener() {
                 {COLS.map((col) => (
                   <th
                     key={col.key}
-                    onClick={() => col.key !== 'chart' && toggleSort(col.key)}
+                    aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={clsx(
                       'px-3 py-3 font-medium select-none',
                       col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-                      col.key !== 'chart' && 'cursor-pointer hover:text-slate-300 transition-colors',
                     )}
                   >
-                    <span className="inline-flex items-center gap-0.5">
-                      {col.label}
-                      {col.key !== 'chart' && <SortIcon col={col.key} />}
-                    </span>
+                    {col.key === 'chart' ? (
+                      <span>{col.label}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className="inline-flex items-center gap-0.5 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                      >
+                        {col.label}
+                        <SortIcon col={col.key} />
+                      </button>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -221,11 +323,15 @@ export default function Screener() {
                   <tr
                     key={s.ticker}
                     className="table-row text-sm border-b border-navy-700/50"
-                    onClick={() => navigate(`/stock/${s.ticker}`)}
                   >
                     <td className="px-3 py-3">
-                      <div className="font-bold text-slate-200">{s.ticker}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                      <Link
+                        to={`/stock/${s.ticker}`}
+                        className="block max-w-[120px] rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                      >
+                        <span className="block font-bold text-slate-200 hover:text-blue-300">{s.ticker}</span>
+                        <span className="block truncate text-xs text-slate-500">{s.name}</span>
+                      </Link>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">
                       ${s.price.toFixed(2)}
