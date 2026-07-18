@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import QuantGrade from './QuantGrade';
 import MiniChart from './MiniChart';
@@ -16,16 +16,12 @@ const fmtBig = (n) => {
 };
 
 export default function StockCard({ stock, showFactors = true }) {
-  const navigate = useNavigate();
   const positive = stock.changePercent >= 0;
 
   return (
-    <div
-      className="card-hover p-4 cursor-pointer group animate-slide-up"
-      onClick={() => navigate(`/stock/${stock.ticker}`)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && navigate(`/stock/${stock.ticker}`)}
+    <Link
+      to={`/stock/${stock.ticker}`}
+      className="card-hover group block cursor-pointer p-4 animate-slide-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -92,6 +88,6 @@ export default function StockCard({ stock, showFactors = true }) {
         <span className="text-slate-500">Quant Score</span>
         <span className="font-bold font-mono text-slate-200">{stock.quantScore.toFixed(2)} / 5.00</span>
       </div>
-    </div>
+    </Link>
   );
 }

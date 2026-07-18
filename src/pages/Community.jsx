@@ -31,14 +31,15 @@ export default function Community() {
             Community Analysis
           </h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            Crowdsourced investment theses, price targets, and research from {communityPosts.length * 12}+ analysts
+            Synthetic research personas and illustrative theses for exploring the interface
           </p>
         </div>
         <button
+          type="button"
           onClick={() => setShowForm((f) => !f)}
           className="btn-primary flex items-center gap-2"
         >
-          <PenLine size={14} /> New Analysis
+          <PenLine size={14} /> Preview Analysis Form
         </button>
       </div>
 
@@ -46,7 +47,7 @@ export default function Community() {
       {showForm && (
         <div className="card p-5 animate-slide-up border-brand-blue/30">
           <h2 className="section-title mb-4">
-            <PenLine size={15} className="text-brand-blue" /> Submit Analysis
+            <PenLine size={15} className="text-brand-blue" /> Analysis Form Preview
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
@@ -76,10 +77,10 @@ export default function Community() {
             />
           </div>
           <div className="flex items-center gap-3">
-            <button className="btn-primary">Submit Analysis</button>
-            <button className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+            <button type="button" className="btn-primary" disabled>Submission unavailable</button>
+            <button type="button" className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
             <span className="text-xs text-slate-500 ml-auto">
-              Analyses are subject to community moderation
+              Static demo only; submissions are not connected
             </span>
           </div>
         </div>
@@ -94,6 +95,7 @@ export default function Community() {
             {FILTERS.map((f) => (
               <button
                 key={f}
+                type="button"
                 onClick={() => setFilter(f)}
                 className={clsx(
                   'px-3 py-1.5 rounded-full text-xs font-semibold transition-all',
@@ -129,6 +131,7 @@ export default function Community() {
                       <span className="font-semibold text-slate-200">{post.author}</span>
                       <span className="text-slate-500">on</span>
                       <button
+                        type="button"
                         onClick={() => navigate(`/stock/${post.ticker}`)}
                         className="font-bold text-blue-400 hover:text-blue-300 font-mono text-sm"
                       >
@@ -177,6 +180,7 @@ export default function Community() {
                 {/* Actions */}
                 <div className="flex items-center gap-4 mt-4 pt-4 border-t border-navy-700 text-xs">
                   <button
+                    type="button"
                     onClick={() => upvote(post.id)}
                     className={clsx(
                       'flex items-center gap-1.5 font-semibold transition-colors',
@@ -186,10 +190,10 @@ export default function Community() {
                     <ThumbsUp size={13} />
                     {post.upvotes + extraVotes} upvotes
                   </button>
-                  <button className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
+                  <span className="flex items-center gap-1.5 text-slate-400">
                     <MessageSquare size={13} />
                     {post.comments} comments
-                  </button>
+                  </span>
                   {stock && (
                     <div className="ml-auto flex items-center gap-2 text-slate-500">
                       <span>${stock.price.toFixed(2)}</span>
@@ -216,9 +220,10 @@ export default function Community() {
               {topCommunityPicks.map((pick, i) => {
                 const stock = getStockByTicker(pick.ticker);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={pick.ticker}
-                    className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-navy-750 cursor-pointer transition-colors"
+                    className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-navy-750 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
                     onClick={() => navigate(`/stock/${pick.ticker}`)}
                   >
                     <span className="text-xs font-bold text-slate-500 w-4">{i + 1}</span>
@@ -237,7 +242,7 @@ export default function Community() {
                     >
                       {pick.consensus}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -248,10 +253,10 @@ export default function Community() {
             <h2 className="section-title mb-4">Platform Stats</h2>
             <div className="space-y-3">
               {[
-                ['Analysts Active', '2,847', 'text-brand-blue'],
-                ['Total Analyses', '14,293', 'text-brand-purple'],
-                ['Avg Accuracy', '58.4%', 'text-brand-green'],
-                ['Bullish Ratio', '62% / 38%', 'text-brand-yellow'],
+                ['Demo personas', '2,847', 'text-brand-blue'],
+                ['Synthetic analyses', '14,293', 'text-brand-purple'],
+                ['Illustrative hit rate', '58.4%', 'text-brand-green'],
+                ['Simulated bullish ratio', '62% / 38%', 'text-brand-yellow'],
               ].map(([label, val, color]) => (
                 <div key={label} className="flex items-center justify-between py-1.5 border-b border-navy-700 last:border-0">
                   <span className="text-sm text-slate-400">{label}</span>
@@ -263,7 +268,7 @@ export default function Community() {
 
           {/* Disclaimer */}
           <div className="rounded-xl bg-navy-700/50 border border-navy-600 p-4 text-xs text-slate-500 leading-relaxed">
-            Community analyses are for educational purposes only. Not financial advice. Past accuracy does not guarantee future performance. Always do your own research.
+            Every persona, post, vote, target, and platform statistic on this page is synthetic. Educational interface demo only; not financial advice.
           </div>
         </div>
       </div>

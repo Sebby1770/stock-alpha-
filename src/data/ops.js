@@ -1,8 +1,8 @@
 export const readinessSummary = [
-  { label: 'CI/CD', value: 94, status: 'Applied', detail: 'GitHub Actions builds, audits, and container-checks the production bundle.' },
-  { label: 'Containerisation', value: 90, status: 'Applied', detail: 'Docker image serves the static app through nginx with SPA fallback and health probes.' },
-  { label: 'Cloud Delivery', value: 84, status: 'Ready', detail: 'S3 or GitHub Pages can sit behind CloudFront, CDN caching, and WAF rules.' },
-  { label: 'Observability', value: 86, status: 'Applied', detail: 'Runtime errors are captured locally; QPS, throughput, and availability targets are defined.' },
+  { label: 'CI/CD', value: 92, status: 'Applied', detail: 'GitHub Actions runs unit tests, dependency audit, production build, and a Docker build smoke check.' },
+  { label: 'Containerisation', value: 78, status: 'Ready', detail: 'The nginx image and probes are defined and build-checked; publishing and a live rollout are still operator steps.' },
+  { label: 'Cloud Delivery', value: 55, status: 'Designed', detail: 'Pages, S3/CloudFront, and Kubernetes paths are documented templates, not active managed infrastructure.' },
+  { label: 'Observability', value: 35, status: 'Planned', detail: 'React render failures are retained locally; remote telemetry, async errors, QPS, and availability monitoring are not connected.' },
 ];
 
 export const productionChecks = [
@@ -15,14 +15,14 @@ export const productionChecks = [
   {
     area: 'Docker Staging',
     items: ['multi-stage image', 'nginx SPA fallback', 'static asset caching'],
-    state: 'Applied',
-    impact: 'The dashboard can be run locally or in a staging container.',
+    state: 'Ready',
+    impact: 'The dashboard has a repeatable local staging image; registry publication is not automated.',
   },
   {
     area: 'S3 + CDN',
     items: ['immutable assets', 'index fallback', 'CloudFront cache policy'],
-    state: 'Ready',
-    impact: 'The app can be hosted cheaply as static infrastructure.',
+    state: 'Designed',
+    impact: 'Documents how the app could be hosted as static infrastructure; no bucket or distribution is provisioned.',
   },
   {
     area: 'Firewall + Rate Limiting',
@@ -34,7 +34,7 @@ export const productionChecks = [
     area: 'Error Logging',
     items: ['runtime error boundary', 'release stamp', 'local incident queue'],
     state: 'Applied',
-    impact: 'Turns user-facing failures into recoverable incidents.',
+    impact: 'Catches React render failures and retains up to 20 incidents locally; it is not remote observability.',
   },
   {
     area: 'Data Pipeline',
@@ -51,8 +51,8 @@ export const productionChecks = [
   {
     area: 'Load Balancing',
     items: ['CDN edge', 'origin health checks', 'blue/green promotion'],
-    state: 'Ready',
-    impact: 'Provides a clean path from static demo to highly available cloud delivery.',
+    state: 'Designed',
+    impact: 'Documents a future CDN/origin promotion path; no load balancer is currently provisioned.',
   },
 ];
 
@@ -69,12 +69,12 @@ export const architectureNodes = [
 ];
 
 export const serviceLevelTargets = [
-  { metric: 'Availability', target: '99.9%', current: 'static host ready' },
-  { metric: 'P95 page load', target: '< 2.5s', current: 'route chunks split' },
-  { metric: 'API QPS budget', target: '100 req/min/user', current: 'gateway design' },
+  { metric: 'Availability', target: '99.9%', current: 'not measured' },
+  { metric: 'P95 page load', target: '< 2.5s', current: 'route chunks split; RUM absent' },
+  { metric: 'API QPS budget', target: '100 req/min/user', current: 'no live API' },
   { metric: 'Cache TTL', target: '60s quotes / 1h research', current: 'CDN plan' },
-  { metric: 'Queue lag', target: '< 30s signal refresh', current: 'SQS worker plan' },
-  { metric: 'Error logging', target: '100% runtime exceptions', current: 'runbook defined' },
+  { metric: 'Queue lag', target: '< 30s signal refresh', current: 'no queue provisioned' },
+  { metric: 'Error capture', target: 'render failures', current: 'local boundary only' },
 ];
 
 export const deploymentModes = [
@@ -82,17 +82,17 @@ export const deploymentModes = [
     name: 'GitHub Pages',
     command: 'npm run deploy',
     bestFor: 'simple public demo',
-    notes: 'Existing base path points at /stock-alpha-/ for Pages.',
+    notes: 'The deployed build uses hash routes, so refreshes work without a server rewrite.',
   },
   {
     name: 'Docker Staging',
     command: 'docker build -t alpharank . && docker run -p 8080:80 alpharank',
     bestFor: 'local staging and load balancer checks',
-    notes: 'nginx serves immutable assets and falls back to index.html for React routes.',
+    notes: 'nginx serves immutable assets, repeats security headers at each location, and exposes a health endpoint.',
   },
   {
     name: 'S3 + CloudFront',
-    command: 'npm run build && aws s3 sync dist/ s3://<bucket>',
+    command: 'npm run build && aws s3 sync dist/ s3://<bucket>/stock-alpha-/ --delete',
     bestFor: 'cheap cloud production',
     notes: 'Pair with WAF, cache policies, and HTTPS-only viewer protocol.',
   },
@@ -138,9 +138,9 @@ export const cacheAndShardPlan = [
 ];
 
 export const securityControls = [
-  { control: 'Encryption', detail: 'HTTPS-only viewer policy, HSTS, and encrypted object storage.', state: 'Ready' },
+  { control: 'Encryption', detail: 'Planned HTTPS-only viewer policy, HSTS, and encrypted object storage.', state: 'Designed' },
   { control: 'Firewall', detail: 'WAF rules for bot filtering, geo anomalies, and abusive query patterns.', state: 'Designed' },
   { control: 'Rate Limiting', detail: 'API Gateway throttle budgets and per-user QPS ceilings.', state: 'Designed' },
-  { control: 'Deployments', detail: 'Blue/green static releases with rollback to the previous asset version.', state: 'Ready' },
+  { control: 'Deployments', detail: 'Planned blue/green static releases with rollback to the previous asset version.', state: 'Designed' },
   { control: 'GitHub Flow', detail: 'Feature branches, pull requests, CI gates, and changelog entries per release.', state: 'Applied' },
 ];

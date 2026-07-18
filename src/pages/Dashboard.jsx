@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Zap, Users, BarChart2,
   ArrowUpRight, Newspaper, ChevronRight, Activity,
@@ -29,7 +28,7 @@ const recentPosts = communityPosts.slice(0, 4);
 function IndexCard({ idx }) {
   const pos = idx.changePct >= 0;
   return (
-    <div className="stat-card glow-card group cursor-pointer hover:border-navy-500 transition-all">
+    <div className="stat-card glow-card">
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-400">{idx.name}</span>
         <span className={clsx('text-xs font-medium', pos ? 'text-brand-green' : 'text-brand-red')}>
@@ -50,27 +49,7 @@ function IndexCard({ idx }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [liveIndices, setLiveIndices] = useState(indices.slice(0, 5));
-
-  // Simulate live price ticks
-  useEffect(() => {
-    const id = setInterval(() => {
-      setLiveIndices((prev) =>
-        prev.map((idx) => {
-          const delta = (Math.random() - 0.495) * idx.value * 0.0002;
-          const newVal = idx.value + delta;
-          const totalChange = idx.change + delta;
-          return {
-            ...idx,
-            value: Math.round(newVal * 100) / 100,
-            change: Math.round(totalChange * 100) / 100,
-            changePct: Math.round((totalChange / (newVal - totalChange)) * 10000) / 100,
-          };
-        }),
-      );
-    }, 2500);
-    return () => clearInterval(id);
-  }, []);
+  const displayedIndices = indices.slice(0, 5);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -88,7 +67,7 @@ export default function Dashboard() {
             AlphaRank Research Platform
           </h1>
           <p className="text-slate-400 text-sm max-w-lg">
-            Factor-based quant ratings, crowdsourced analysis, and institutional-grade screening — built to identify tomorrow's outperformers today.
+            Explore factor-based model ratings, synthetic community research, and screening workflows using a clearly labelled educational dataset.
           </p>
           <div className="flex items-center gap-3 mt-4">
             <button onClick={() => navigate('/screener')} className="btn-primary flex items-center gap-2">
@@ -113,10 +92,10 @@ export default function Dashboard() {
       <section>
         <h2 className="section-title mb-3">
           <TrendingUp size={16} className="text-brand-blue" />
-          Market Overview
+          Simulated Market Snapshot
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {liveIndices.map((idx) => (
+          {displayedIndices.map((idx) => (
             <IndexCard key={idx.symbol} idx={idx} />
           ))}
         </div>
@@ -196,9 +175,10 @@ export default function Dashboard() {
           </h2>
           <div className="space-y-3">
             {topMomentum.map((s, i) => (
-              <div
+              <button
+                type="button"
                 key={s.ticker}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-navy-750 cursor-pointer transition-colors"
+                className="flex w-full items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:bg-navy-750 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
                 onClick={() => navigate(`/stock/${s.ticker}`)}
               >
                 <span className="text-xs font-bold text-slate-500 w-4">{i + 1}</span>
@@ -218,7 +198,7 @@ export default function Dashboard() {
                   </div>
                   <QuantGrade grade={s.quantGrade} size="xs" />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -231,9 +211,10 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="section-title">
               <Users size={16} className="text-brand-cyan" />
-              Community Analysis
+              Synthetic Community
             </h2>
             <button
+              type="button"
               onClick={() => navigate('/community')}
               className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
             >
@@ -242,10 +223,11 @@ export default function Dashboard() {
           </div>
           <div className="space-y-3">
             {recentPosts.map((post) => (
-              <div
+              <button
+                type="button"
                 key={post.id}
                 onClick={() => navigate('/community')}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-navy-750 cursor-pointer transition-colors"
+                className="flex w-full items-start gap-3 rounded-lg p-3 text-left transition-colors hover:bg-navy-750 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
               >
                 <div
                   className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
@@ -279,7 +261,7 @@ export default function Dashboard() {
                     <span>💬 {post.comments}</span>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -354,11 +336,15 @@ export default function Dashboard() {
                   <tr
                     key={s.ticker}
                     className="table-row text-sm"
-                    onClick={() => navigate(`/stock/${s.ticker}`)}
                   >
                     <td className="px-5 py-3">
-                      <div className="font-bold text-slate-200">{s.ticker}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-[140px] hidden sm:block">{s.name}</div>
+                      <Link
+                        to={`/stock/${s.ticker}`}
+                        className="block max-w-[140px] rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                      >
+                        <span className="block font-bold text-slate-200 hover:text-blue-300">{s.ticker}</span>
+                        <span className="hidden truncate text-xs text-slate-500 sm:block">{s.name}</span>
+                      </Link>
                     </td>
                     <td className="px-3 py-3 text-xs text-slate-400 hidden md:table-cell">{s.sector}</td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">

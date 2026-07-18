@@ -25,7 +25,7 @@ export const sectorPerformance = [
   { name: 'Utilities', ytd: 4.2, oneMonth: 2.1, oneWeek: 0.8, color: '#7c3aed' },
 ];
 
-export const marketNews = [
+const syntheticNews = [
   {
     id: 1,
     headline: 'Fed signals potential rate cuts later in 2026 as inflation nears 2% target',
@@ -84,9 +84,15 @@ export const marketNews = [
   },
 ];
 
+export const marketNews = syntheticNews.map((item) => ({
+  ...item,
+  source: 'Synthetic demo feed',
+  time: 'Snapshot · 1 May 2026',
+}));
+
 export const marketStatus = {
-  isOpen: true,
-  session: 'Regular Trading',
-  nextEvent: 'Market closes at 4:00 PM ET',
-  lastUpdate: new Date().toISOString(),
+  isOpen: false,
+  session: 'Simulated snapshot',
+  nextEvent: 'No live market connection',
+  lastUpdate: '2026-05-01T20:00:00.000Z',
 };

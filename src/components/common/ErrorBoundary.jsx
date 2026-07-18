@@ -10,7 +10,7 @@ function reportClientError(error, errorInfo, incidentId) {
     stack: error?.stack || null,
     componentStack: errorInfo?.componentStack || null,
     release: import.meta.env.VITE_APP_VERSION || 'local',
-    path: window.location.pathname,
+    path: `${window.location.pathname}${window.location.search}${window.location.hash}`,
     ts: new Date().toISOString(),
   };
 

@@ -60,20 +60,23 @@ export const getSignalScore = (stock) => {
   const risk = getRiskScore(stock);
   const community = getCommunityBullishness(stock);
   const quality =
-    stock.quantScore * 12 +
-    stock.factors.momentum * 6 +
-    stock.factors.profitability * 5 +
-    stock.factors.revisions * 4;
+    (stock.quantScore / 5) * 48 +
+    (stock.factors.momentum / 5) * 12 +
+    (stock.factors.profitability / 5) * 10 +
+    (stock.factors.revisions / 5) * 8;
+  const upsideContribution = (clamp(upside, -25, 50) / 50) * 10;
+  const communityContribution = (clamp(community, -100, 100) / 100) * 5;
+  const riskPenalty = (risk / 100) * 22;
 
-  return clamp(quality + upside * 0.35 + community * 0.08 - risk * 0.42, 0, 100);
+  return clamp(quality + upsideContribution + communityContribution - riskPenalty, 0, 100);
 };
 
 export const getSignalLabel = (score) => {
-  if (score >= 78) return 'High conviction';
-  if (score >= 64) return 'Accumulate';
-  if (score >= 50) return 'Watch';
+  if (score >= 72) return 'Model leader';
+  if (score >= 60) return 'Positive';
+  if (score >= 48) return 'Watch';
   if (score >= 36) return 'Neutral';
-  return 'Avoid';
+  return 'Caution';
 };
 
 export const enrichStock = (stock) => {
@@ -94,13 +97,15 @@ export const enrichStock = (stock) => {
 };
 
 export const rankSignalCandidates = (stocks) =>
-  stocks.map(enrichStock).sort((a, b) => b.signalScore - a.signalScore);
+  stocks.map(enrichStock).sort((a, b) => (
+    b.signalScore - a.signalScore || a.ticker.localeCompare(b.ticker)
+  ));
 
 const STRATEGY_SORTERS = {
-  balanced: (a, b) => b.signalScore - a.signalScore,
-  quant: (a, b) => b.quantScore - a.quantScore,
-  momentum: (a, b) => b.factors.momentum - a.factors.momentum,
-  value: (a, b) => b.factors.value - a.factors.value,
+  balanced: (a, b) => b.signalScore - a.signalScore || a.ticker.localeCompare(b.ticker),
+  quant: (a, b) => b.quantScore - a.quantScore || a.ticker.localeCompare(b.ticker),
+  momentum: (a, b) => b.factors.momentum - a.factors.momentum || a.ticker.localeCompare(b.ticker),
+  value: (a, b) => b.factors.value - a.factors.value || a.ticker.localeCompare(b.ticker),
 };
 
 export const STRATEGIES = [
@@ -110,11 +115,16 @@ export const STRATEGIES = [
   { id: 'value', label: 'Value' },
 ];
 
-export const buildStrategyBacktest = (stocks, strategyId = 'balanced', size = 5) => {
+export const buildHistoricalScenario = (stocks, strategyId = 'balanced', size = 5) => {
   const enriched = rankSignalCandidates(stocks);
   const sorter = STRATEGY_SORTERS[strategyId] || STRATEGY_SORTERS.balanced;
-  const holdings = [...enriched].sort(sorter).slice(0, size);
-  const length = Math.min(...holdings.map((stock) => stock.priceHistory.length));
+  const holdings = [...enriched]
+    .filter((stock) => stock.priceHistory?.length)
+    .sort(sorter)
+    .slice(0, Math.max(0, size));
+  const length = holdings.length
+    ? Math.min(...holdings.map((stock) => stock.priceHistory.length))
+    : 0;
   const curve = [];
 
   for (let index = 0; index < length; index += 1) {
@@ -132,14 +142,19 @@ export const buildStrategyBacktest = (stocks, strategyId = 'balanced', size = 5)
   const start = curve[0]?.value || 10000;
   const end = curve[curve.length - 1]?.value || start;
   const totalReturn = ((end - start) / start) * 100;
-  const bestHolding = holdings.reduce((best, stock) =>
-    getHistoryReturn(stock) > getHistoryReturn(best) ? stock : best, holdings[0]);
+  const bestHolding = holdings.length
+    ? holdings.reduce((best, stock) => (
+      getHistoryReturn(stock) > getHistoryReturn(best) ? stock : best
+    ), holdings[0])
+    : null;
 
   return {
     curve,
     holdings,
     totalReturn,
     bestHolding,
+    isBacktest: false,
+    methodology: 'Current snapshot ranking replayed over simulated history; not a time-causal backtest.',
   };
 };
 

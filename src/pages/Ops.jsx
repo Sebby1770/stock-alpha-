@@ -87,12 +87,12 @@ export default function Ops() {
             Production Ops
           </h1>
           <p className="text-slate-400 text-sm mt-0.5 max-w-3xl">
-            A deployment and reliability cockpit for the research platform: container staging, CI/CD, cloud hosting, API throttles, caching, and observability.
+            A transparent readiness map: implemented static-app controls are separated from future backend and cloud designs.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border border-brand-green/20 bg-brand-green/10 px-3 py-2 text-sm text-brand-green">
+        <div className="flex items-center gap-2 rounded-lg border border-brand-blue/20 bg-brand-blue/10 px-3 py-2 text-sm text-brand-blue">
           <Lock size={15} />
-          Static app hardened for staged deployment
+          Tests and static build controls implemented
         </div>
       </div>
 

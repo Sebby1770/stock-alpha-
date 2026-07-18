@@ -27,21 +27,22 @@ import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import {
   STRATEGIES,
-  buildStrategyBacktest,
+  buildHistoricalScenario,
   getSectorSignalSummary,
   rankSignalCandidates,
   toPercent,
 } from '../utils/analytics';
 import { readJson, storageKey, writeJson } from '../utils/storage';
+import { formatDateOnly } from '../utils/dates';
 import clsx from 'clsx';
 
 const WATCHLIST_KEY = storageKey('watchlist', 'v2');
 const fmtMoney = (value) => `$${Math.round(value).toLocaleString('en-US')}`;
 
 const signalColor = (score) => {
-  if (score >= 78) return 'text-brand-green';
-  if (score >= 64) return 'text-brand-blue';
-  if (score >= 50) return 'text-brand-yellow';
+  if (score >= 72) return 'text-brand-green';
+  if (score >= 60) return 'text-brand-blue';
+  if (score >= 48) return 'text-brand-yellow';
   return 'text-slate-400';
 };
 
@@ -69,10 +70,14 @@ function useWatchlist() {
     const saved = readJson(WATCHLIST_KEY, []);
     return Array.isArray(saved) ? saved : [];
   });
+  const [storageWarning, setStorageWarning] = useState('');
 
   const persist = (next) => {
     setWatchlist(next);
-    writeJson(WATCHLIST_KEY, next);
+    const saved = writeJson(WATCHLIST_KEY, next);
+    setStorageWarning(saved
+      ? ''
+      : 'This watchlist change is active for this session, but your browser blocked saving it. It may be lost when you close or reload this tab.');
   };
 
   const toggle = (ticker) => {
@@ -83,7 +88,7 @@ function useWatchlist() {
     );
   };
 
-  return { watchlist, toggle };
+  return { watchlist, toggle, storageWarning };
 }
 
 function MetricCard({ icon: Icon, label, value, hint, tone = 'text-slate-100' }) {
@@ -119,26 +124,33 @@ function SignalRow({ stock, starred, onToggle, onOpen }) {
           {starred ? <Star size={16} className="fill-brand-yellow text-brand-yellow" /> : <StarOff size={16} />}
         </button>
       </td>
-      <td className="px-2 py-3" onClick={() => onOpen(stock.ticker)}>
-        <div className="font-bold text-slate-200">{stock.ticker}</div>
-        <div className="text-xs text-slate-500 truncate max-w-[160px]">{stock.name}</div>
+      <td className="px-2 py-3">
+        <button
+          type="button"
+          onClick={() => onOpen(stock.ticker)}
+          className="max-w-[160px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+          aria-label={`Open ${stock.ticker} research`}
+        >
+          <span className="block font-bold text-slate-200">{stock.ticker}</span>
+          <span className="block truncate text-xs text-slate-500">{stock.name}</span>
+        </button>
       </td>
-      <td className="px-3 py-3 text-center" onClick={() => onOpen(stock.ticker)}>
+      <td className="px-3 py-3 text-center">
         <QuantGrade grade={stock.quantGrade} size="sm" />
       </td>
-      <td className={clsx('px-3 py-3 text-right font-mono font-bold', signalColor(stock.signalScore))} onClick={() => onOpen(stock.ticker)}>
+      <td className={clsx('px-3 py-3 text-right font-mono font-bold', signalColor(stock.signalScore))}>
         {stock.signalScore.toFixed(0)}
       </td>
-      <td className="px-3 py-3 text-right font-mono text-brand-green" onClick={() => onOpen(stock.ticker)}>
+      <td className="px-3 py-3 text-right font-mono text-brand-green">
         {toPercent(stock.upside)}
       </td>
-      <td className={clsx('px-3 py-3 text-right font-mono', riskColor(stock.riskScore))} onClick={() => onOpen(stock.ticker)}>
+      <td className={clsx('px-3 py-3 text-right font-mono', riskColor(stock.riskScore))}>
         {stock.riskScore.toFixed(0)}
       </td>
-      <td className="px-3 py-3 text-right text-slate-400" onClick={() => onOpen(stock.ticker)}>
+      <td className="px-3 py-3 text-right text-slate-400">
         {stock.signalLabel}
       </td>
-      <td className="px-4 py-3" onClick={() => onOpen(stock.ticker)}>
+      <td className="px-4 py-3">
         <div className="w-20">
           <MiniChart data={stock.priceHistory} positive={stock.trailingReturn >= 0} height={30} />
         </div>
@@ -149,10 +161,10 @@ function SignalRow({ stock, starred, onToggle, onOpen }) {
 
 export default function Signals() {
   const navigate = useNavigate();
-  const { watchlist, toggle } = useWatchlist();
+  const { watchlist, toggle, storageWarning } = useWatchlist();
   const [strategy, setStrategy] = useState('balanced');
   const ranked = useMemo(() => rankSignalCandidates(stocks), []);
-  const backtest = useMemo(() => buildStrategyBacktest(stocks, strategy), [strategy]);
+  const scenario = useMemo(() => buildHistoricalScenario(stocks, strategy), [strategy]);
   const sectors = useMemo(() => getSectorSignalSummary(stocks), []);
   const watchlistStocks = ranked.filter((stock) => watchlist.includes(stock.ticker));
   const top = ranked[0];
@@ -194,6 +206,7 @@ export default function Signals() {
               key={item.id}
               type="button"
               onClick={() => setStrategy(item.id)}
+              aria-pressed={strategy === item.id}
               className={clsx('btn-secondary', strategy === item.id && 'border-brand-blue text-brand-blue bg-brand-blue/10')}
             >
               {item.label}
@@ -206,6 +219,16 @@ export default function Signals() {
         </div>
       </div>
 
+      {storageWarning && (
+        <div
+          role="alert"
+          className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200"
+        >
+          <span className="font-semibold">Watchlist could not be saved.</span>{' '}
+          {storageWarning}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <MetricCard
           icon={Target}
@@ -216,10 +239,10 @@ export default function Signals() {
         />
         <MetricCard
           icon={TrendingUp}
-          label="Strategy Return"
-          value={toPercent(backtest.totalReturn)}
-          hint={`${backtest.holdings.length} stock equal-weight test`}
-          tone={backtest.totalReturn >= 0 ? 'text-brand-green' : 'text-brand-red'}
+          label="Historical Scenario"
+          value={toPercent(scenario.totalReturn)}
+          hint={`${scenario.holdings.length} current model leaders replayed on synthetic history`}
+          tone={scenario.totalReturn >= 0 ? 'text-brand-green' : 'text-brand-red'}
         />
         <MetricCard
           icon={Gauge}
@@ -279,14 +302,14 @@ export default function Signals() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="section-title">
               <Activity size={16} className="text-brand-purple" />
-              Strategy Backtest
+              Historical Scenario
             </h2>
             <span className="text-xs text-slate-500">{STRATEGIES.find((item) => item.id === strategy)?.label}</span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={backtest.curve} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+            <AreaChart data={scenario.curve} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
-                <linearGradient id="signalBacktest" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="signalScenario" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.28} />
                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
@@ -295,7 +318,7 @@ export default function Signals() {
               <XAxis
                 dataKey="date"
                 tick={{ fill: '#64748b', fontSize: 11 }}
-                tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                tickFormatter={(date) => formatDateOnly(date, { month: 'short', day: 'numeric' })}
                 axisLine={false}
                 tickLine={false}
               />
@@ -310,13 +333,16 @@ export default function Signals() {
               <Tooltip
                 contentStyle={{ background: '#0d1526', border: '1px solid #243659', borderRadius: 8 }}
                 formatter={(value) => [fmtMoney(value), 'Equity']}
-                labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                labelFormatter={(date) => formatDateOnly(date)}
               />
-              <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#signalBacktest)" dot={false} />
+              <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#signalScenario)" dot={false} />
             </AreaChart>
           </ResponsiveContainer>
+          <p className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 px-3 py-2 text-xs leading-relaxed text-yellow-200">
+            Illustrative only: the current snapshot&apos;s model ranking is replayed over simulated history. It uses future-known snapshot inputs, so this is not a time-causal backtest or evidence of expected returns.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {backtest.holdings.map((stock) => (
+            {scenario.holdings.map((stock) => (
               <button
                 key={stock.ticker}
                 type="button"

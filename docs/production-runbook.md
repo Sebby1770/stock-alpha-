@@ -1,24 +1,26 @@
 # AlphaRank Production Runbook
 
-## From The Photo To The Repo
+## What Exists Today
 
-Applied directly:
-- Docker staging and containerisation: `Dockerfile`, `.dockerignore`, and `nginx.conf`.
-- CI/CD and GitHub: `.github/workflows/ci.yml`.
-- Cloud deploy path: GitHub Pages, S3 + CloudFront, or container behind a load balancer.
-- Caching proxy: immutable cache headers for hashed assets in nginx/CDN.
-- Firewall and rate limiting: place WAF/API Gateway in front of future API calls.
-- Availability and throughput: Kubernetes starter manifest runs two replicas with health probes.
-- WebSockets, long polling, short polling, and RPC: documented in the Ops cockpit as delivery options for future live quote and signal APIs.
-- Sharding and partitioning: ticker/sector cache keys and DynamoDB partition strategy are modeled in the Ops cockpit.
-- Encryption: HTTPS-only CloudFront policy, HSTS headers, and encrypted storage are part of the cloud checklist.
+- CI runs dependency audit, 20 unit tests in a negative-offset timezone, the production build, and a Docker
+  build smoke check.
+- `Dockerfile`, `.dockerignore`, and `nginx.conf` provide local container
+  staging, immutable asset caching, explicit response security headers, SPA
+  fallback, and `/healthz`.
+- GitHub Pages deployment uses refresh-safe hash routes.
+- The React error boundary retains render failures in local storage only. No
+  remote telemetry or service-level monitoring is connected.
+- `deploy/kubernetes.yml` is a starter template. Replace
+  `sha-REPLACE_ME` with a published immutable image tag before applying it.
 
-Designed for the next backend:
+## Designed For A Future Backend
+
+- S3 + CloudFront hosting, HTTPS-only delivery, WAF, and API rate limiting.
 - SQS for market-data ingestion jobs.
 - Kafka or RabbitMQ for durable fanout if signal events need more than simple queueing.
 - Lambda/serverless workers for scheduled quote/news refresh.
 - DynamoDB for low-latency signal snapshots.
-- Error logging and QPS dashboards for any API layer.
+- Remote error reporting, QPS dashboards, availability alerts, and rollback automation.
 
 ## Local Staging
 
@@ -39,13 +41,13 @@ aws s3 sync dist/ s3://<bucket>/stock-alpha-/ --delete
 
 Put CloudFront in front of the bucket and configure:
 - HTTPS only
-- `/stock-alpha-/index.html` as fallback for React routes
+- `/stock-alpha-/index.html` as the default object (hash routes need no path rewrite)
 - long TTL for `/stock-alpha-/assets/*`
 - short/no cache for `index.html`
 
 ## API Gateway Plan
 
-When live data is added, keep browsers away from providers directly:
+If live data is added later, keep browsers away from providers directly:
 
 ```mermaid
 flowchart LR

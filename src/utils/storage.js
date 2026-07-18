@@ -16,7 +16,9 @@ export function readJson(key, fallback) {
 export function writeJson(key, value) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
     // Browsers can reject storage in private mode or when quota is full.
+    return false;
   }
 }

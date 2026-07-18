@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   SlidersHorizontal,
   Search,
@@ -54,7 +54,6 @@ const COLS = [
 ];
 
 export default function Screener() {
-  const navigate = useNavigate();
 
   const [query, setQuery] = useState('');
   const [sector, setSector] = useState('All');
@@ -240,7 +239,7 @@ export default function Screener() {
         <div className="card p-4">
           <div className="flex items-center gap-2 text-xs text-slate-400 mb-1">
             <Target size={14} className="text-brand-green" />
-            Best Current Signal
+            Top Snapshot Signal
           </div>
           <div className="text-xl font-extrabold text-slate-100">
             {screenStats.top ? screenStats.top.ticker : '--'}
@@ -295,17 +294,24 @@ export default function Screener() {
                 {COLS.map((col) => (
                   <th
                     key={col.key}
-                    onClick={() => col.key !== 'chart' && toggleSort(col.key)}
+                    aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={clsx(
                       'px-3 py-3 font-medium select-none',
                       col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-                      col.key !== 'chart' && 'cursor-pointer hover:text-slate-300 transition-colors',
                     )}
                   >
-                    <span className="inline-flex items-center gap-0.5">
-                      {col.label}
-                      {col.key !== 'chart' && <SortIcon col={col.key} />}
-                    </span>
+                    {col.key === 'chart' ? (
+                      <span>{col.label}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className="inline-flex items-center gap-0.5 transition-colors hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                      >
+                        {col.label}
+                        <SortIcon col={col.key} />
+                      </button>
+                    )}
                   </th>
                 ))}
               </tr>
@@ -317,11 +323,15 @@ export default function Screener() {
                   <tr
                     key={s.ticker}
                     className="table-row text-sm border-b border-navy-700/50"
-                    onClick={() => navigate(`/stock/${s.ticker}`)}
                   >
                     <td className="px-3 py-3">
-                      <div className="font-bold text-slate-200">{s.ticker}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                      <Link
+                        to={`/stock/${s.ticker}`}
+                        className="block max-w-[120px] rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue"
+                      >
+                        <span className="block font-bold text-slate-200 hover:text-blue-300">{s.ticker}</span>
+                        <span className="block truncate text-xs text-slate-500">{s.name}</span>
+                      </Link>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">
                       ${s.price.toFixed(2)}

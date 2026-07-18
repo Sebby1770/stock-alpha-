@@ -1,5 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
+# Starter template only. Replace sha-REPLACE_ME with an immutable image tag
+# produced by your release pipeline before applying this manifest.
 metadata:
   name: alpharank
   labels:
@@ -14,9 +16,15 @@ spec:
       labels:
         app: alpharank
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
-          image: ghcr.io/sebby1770/stock-alpha:latest
+          image: ghcr.io/sebby1770/stock-alpha:sha-REPLACE_ME
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
           ports:
             - containerPort: 80
           readinessProbe:
