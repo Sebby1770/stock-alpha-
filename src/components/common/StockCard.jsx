@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import QuantGrade from './QuantGrade';
 import MiniChart from './MiniChart';
+import WatchlistButton from './WatchlistButton';
 import { FactorScores } from './FactorBar';
 import clsx from 'clsx';
 
@@ -21,11 +22,12 @@ export default function StockCard({ stock, showFactors = true }) {
 
   return (
     <div
-      className="card-hover p-4 cursor-pointer group animate-slide-up"
+      className="card-hover p-4 cursor-pointer group animate-slide-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50"
       onClick={() => navigate(`/stock/${stock.ticker}`)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && navigate(`/stock/${stock.ticker}`)}
+      aria-label={`${stock.ticker} ${stock.name}, grade ${stock.quantGrade}`}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -40,7 +42,10 @@ export default function StockCard({ stock, showFactors = true }) {
             <div className="text-xs text-slate-500 truncate max-w-[120px]">{stock.name}</div>
           </div>
         </div>
-        <QuantGrade grade={stock.quantGrade} size="md" showGlow />
+        <div className="flex items-center gap-1">
+          <WatchlistButton ticker={stock.ticker} size={15} />
+          <QuantGrade grade={stock.quantGrade} size="md" showGlow />
+        </div>
       </div>
 
       {/* Price + Chart */}

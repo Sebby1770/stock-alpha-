@@ -1,153 +1,157 @@
 # AlphaRank — Quant Stock Analysis Platform
 
-> Advanced stock prediction & analysis platform with factor-based Quant Ratings, crowdsourced analysis, interactive charts, and an institutional-grade stock screener.
+> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, and a paper portfolio — built as an educational demo with **mock data only**.
 
-![AlphaRank Screenshot](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Recharts](https://img.shields.io/badge/Recharts-2-red)
+![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
+
+**Live (GitHub Pages):** `https://sebby1770.github.io/stock-alpha-/`
+
+---
+
+## ⚠️ Disclaimer
+
+**All market data, prices, news, and factor scores are simulated for educational and demonstration purposes.** This is **not financial advice**. Price histories are generated with a seeded RNG and do not reflect real markets. Do not trade based on this UI.
 
 ---
 
 ## Features
 
-### Quant Rating System
-- **5-Factor Model**: Value (20%), Growth (25%), Momentum (20%), Profitability (20%), Revisions (15%)
-- **A+ to F letter grades** — color-coded with glow effects for top-rated stocks
-- **Radar chart** and individual factor bars for deep-dive analysis
-- Scores are computed from real financial multiples and growth metrics
+### Quant rating system
+- **5-factor model**: Value (20%), Growth (25%), Momentum (20%), Profitability (20%), Revisions (15%)
+- Pure engine in [`src/lib/quant.js`](src/lib/quant.js) — unit-tested with Vitest
+- Letter grades **A+ → F** with tooltips explaining weights and thresholds
+- Radar charts and factor bars on detail / compare pages
 
-### Stock Screener
-- Filter by sector, market cap, minimum quant grade, and score threshold
-- Sortable columns across all 14 data points
-- Mini sparkline charts inline in the table
-- Full 25-stock universe with realistic financial data
+### Screener
+- Filter by sector, market cap, min grade, min score, and text search
+- Sortable columns; **Export CSV** of the filtered set
+- Star stocks (watchlist) and toggle compare from each row
+- Empty state when filters match nothing
 
-### Crowdsourced Community
-- Long-form investment thesis posts with Buy/Hold/Sell ratings
-- Price targets and community sentiment aggregation
-- Upvote system and comment counts
-- Submit new analysis form
+### Watchlist & compare
+- Watchlist persisted in `localStorage`
+- Compare **2–3 tickers** side-by-side (radar + bars + metrics table)
 
-### Portfolio Tracker
-- 10 pre-loaded positions with realistic entry prices
-- 90-day equity curve chart
-- Allocation pie chart
-- Per-holding factor scores, quant grades, and P&L
+### Portfolio
+- Paper portfolio with add / remove positions
+- Holdings persisted in `localStorage`; reset to sample book anytime
+- Equity curve, allocation pie, per-holding quant factors
 
-### Dashboard
-- Live-ticking market indices (S&P 500, NASDAQ, Dow, etc.) with animated updates
-- Scrolling ticker tape across all major indices + BTC, gold, oil
-- Top Quant Rated stocks grid
-- Sector YTD performance bar chart
-- Momentum leaders leaderboard
-- Market news feed
+### UX
+- Navbar search → stock detail; press **`/`** to focus search
+- Dark / light theme toggle
+- Focus rings, skip link, and ARIA labels for accessibility
 
 ---
 
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| Framework | React 18 |
+|-------|------------|
+| UI | React 18 |
 | Build | Vite 5 |
-| Styling | Tailwind CSS 3 |
+| Style | Tailwind CSS 3 |
 | Charts | Recharts 2 |
 | Routing | React Router v6 |
+| Tests | Vitest 2 |
 | Icons | Lucide React |
-| Fonts | Inter + JetBrains Mono (Google Fonts) |
 
 ---
 
-## Getting Started
+## Scripts
 
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/stock-alpha.git
-cd stock-alpha
-
-# Install dependencies
 npm install
-
-# Start dev server
-npm run dev
+npm run dev      # Vite dev server
+npm test         # Vitest (single run)
+npm run test:watch
+npm run build    # Production build (uses VITE_BASE)
+npm run preview  # Preview dist/
+npm run lint     # Placeholder (passes)
+npm run deploy   # build + gh-pages
 ```
 
-Open [http://localhost:5173/stock-alpha/](http://localhost:5173/stock-alpha/)
+Open dev at: [http://localhost:5173/stock-alpha-/](http://localhost:5173/stock-alpha-/)
 
----
+### Base path (GitHub Pages)
 
-## Build & Deploy
+Default Vite base is `/stock-alpha-/` (matches repo `Sebby1770/stock-alpha-`).
 
 ```bash
-# Production build
-npm run build
+# Root deploy / local without subpath
+VITE_BASE=/ npm run build
 
-# Preview production build locally
-npm run preview
-
-# Deploy to GitHub Pages (requires gh-pages package)
-npm run deploy
+# Custom subpath
+VITE_BASE=/my-path/ npm run build
 ```
 
-### GitHub Pages Setup
-
-1. Push to GitHub
-2. Run `npm run deploy` — this builds and pushes to the `gh-pages` branch
-3. In your repo settings → Pages → set source to `gh-pages` branch
-4. Your app will be live at `https://YOUR_USERNAME.github.io/stock-alpha/`
+The React Router basename is derived from `import.meta.env.BASE_URL`.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 src/
-├── App.jsx                   # Router + layout
-├── index.css                 # Global styles + Tailwind
-├── main.jsx                  # Entry point
-├── components/
-│   ├── common/
-│   │   ├── FactorBar.jsx     # Factor score progress bars
-│   │   ├── MiniChart.jsx     # Sparkline area chart
-│   │   ├── QuantGrade.jsx    # A+→F letter grade badge
-│   │   └── StockCard.jsx     # Stock summary card
-│   └── layout/
-│       ├── Navbar.jsx        # Top nav with search + ticker tape
-│       └── Sidebar.jsx       # Left nav
+├── App.jsx                 # Providers + router (basename from Vite base)
+├── main.jsx
+├── index.css               # Tailwind + light/dark theme hooks
+├── lib/
+│   ├── quant.js            # Pure scoring, grade, filter, sort, CSV
+│   ├── quant.test.js       # Vitest coverage
+│   ├── storage.js          # localStorage helpers
+│   └── format.js           # Display formatters
+├── context/
+│   ├── ThemeContext.jsx
+│   ├── WatchlistContext.jsx
+│   ├── CompareContext.jsx
+│   └── PortfolioContext.jsx
 ├── data/
-│   ├── stocks.js             # 25 stocks with full data + seeded price history
-│   ├── market.js             # Indices, sectors, news
-│   └── community.js          # Community posts + top picks
+│   ├── stocks.js           # Mock universe + seeded price history
+│   ├── market.js
+│   └── community.js
+├── components/
+│   ├── common/             # StockCard, QuantGrade, FactorBar, …
+│   └── layout/             # Navbar, Sidebar
 └── pages/
-    ├── Dashboard.jsx         # Main dashboard
-    ├── StockDetail.jsx       # Individual stock page (3 tabs)
-    ├── Screener.jsx          # Filterable + sortable stock table
-    ├── Community.jsx         # Crowdsourced analysis feed
-    └── Portfolio.jsx         # Portfolio tracker with equity curve
+    ├── Dashboard.jsx
+    ├── StockDetail.jsx
+    ├── Screener.jsx
+    ├── Watchlist.jsx
+    ├── Compare.jsx
+    ├── Community.jsx
+    └── Portfolio.jsx
 ```
 
 ---
 
-## Quant Rating Methodology
+## Quant methodology
 
-Each stock receives five factor scores (0–5):
-
-| Factor | Weight | Inputs |
-|--------|--------|--------|
+| Factor | Weight | Inputs (conceptual) |
+|--------|--------|---------------------|
 | **Value** | 20% | P/E, P/S, P/B, EV/EBITDA |
-| **Growth** | 25% | Revenue growth, EPS growth, FCF growth |
-| **Momentum** | 20% | 1M, 3M, 6M price performance |
-| **Profitability** | 20% | ROE, Gross Margin, Operating Margin |
-| **Revisions** | 15% | EPS estimate revision direction |
+| **Growth** | 25% | Revenue / EPS growth |
+| **Momentum** | 20% | Price trend windows |
+| **Profitability** | 20% | ROE, margins |
+| **Revisions** | 15% | Estimate revision direction |
 
-The composite score maps to a letter grade (A+ = ≥4.7, A = ≥4.3, … F = <0.5).
+Composite score maps to letter grades (A+ ≥ 4.7, A ≥ 4.3, …, F &lt; 0.5). See `GRADE_THRESHOLDS` in `src/lib/quant.js`.
+
+In this demo, factor scores are authored on each mock stock; the engine only aggregates and grades them.
 
 ---
 
-## Disclaimer
+## CI
 
-All data is simulated for educational and demonstration purposes. This is not financial advice. Price histories are generated algorithmically and do not reflect real market prices.
+GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR:
+
+1. `npm ci`
+2. `npm test`
+3. `npm run lint`
+4. `npm run build`
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

@@ -1,13 +1,16 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  ArrowLeft, TrendingUp, TrendingDown, Target, Users,
-  BarChart2, DollarSign, Star, ChevronUp, ChevronDown,
+  ArrowLeft, TrendingUp, Target, Users,
+  BarChart2, DollarSign, Star, ChevronUp, ChevronDown, GitCompare,
 } from 'lucide-react';
 import { getStockByTicker } from '../data/stocks';
 import { communityPosts } from '../data/community';
 import QuantGrade from '../components/common/QuantGrade';
 import { FactorScores } from '../components/common/FactorBar';
+import WatchlistButton from '../components/common/WatchlistButton';
+import { useCompare } from '../context/CompareContext';
+import { FACTOR_META } from '../lib/quant';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -54,18 +57,21 @@ export default function StockDetail() {
   const stock = getStockByTicker(ticker);
   const [period, setPeriod] = useState('3M');
   const [activeTab, setActiveTab] = useState('overview');
+  const { toggle: toggleCompare, isSelected, canAdd } = useCompare();
 
   if (!stock) {
     return (
-      <div className="flex flex-col items-center justify-center h-96 text-slate-400">
-        <BarChart2 size={48} className="mb-4 opacity-30" />
+      <div className="flex flex-col items-center justify-center h-96 text-slate-400" role="status">
+        <BarChart2 size={48} className="mb-4 opacity-30" aria-hidden="true" />
         <p className="text-lg font-semibold">Stock not found: {ticker}</p>
-        <button onClick={() => navigate('/')} className="mt-4 btn-secondary">
+        <button type="button" onClick={() => navigate('/')} className="mt-4 btn-secondary">
           Back to Dashboard
         </button>
       </div>
     );
   }
+
+  const inCompare = isSelected(stock.ticker);
 
   const pos = stock.changePercent >= 0;
 
@@ -94,13 +100,36 @@ export default function StockDetail() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Back */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-      >
-        <ArrowLeft size={16} /> Back
-      </button>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50 rounded-lg"
+        >
+          <ArrowLeft size={16} aria-hidden="true" /> Back
+        </button>
+        <div className="flex items-center gap-2">
+          <WatchlistButton ticker={stock.ticker} size={18} showLabel className="btn-secondary !py-1.5" />
+          <button
+            type="button"
+            disabled={!inCompare && !canAdd}
+            onClick={() => toggleCompare(stock.ticker)}
+            aria-pressed={inCompare}
+            className={clsx(
+              'btn-secondary flex items-center gap-1.5 disabled:opacity-40',
+              inCompare && 'border-brand-purple/40 text-brand-purple bg-brand-purple/10',
+            )}
+          >
+            <GitCompare size={15} aria-hidden="true" />
+            {inCompare ? 'In compare' : 'Compare'}
+          </button>
+          {inCompare && (
+            <button type="button" onClick={() => navigate('/compare')} className="btn-primary text-xs py-1.5">
+              Open compare
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Hero header */}
       <div className="card p-6 glow-card">
@@ -272,7 +301,11 @@ export default function StockDetail() {
                     <span className="text-slate-500 text-lg"> / 5.00</span>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
-                    Weighted composite of Value (20%), Growth (25%), Momentum (20%), Profitability (20%), Revisions (15%)
+                    Weighted composite:{' '}
+                    {Object.values(FACTOR_META)
+                      .map((f) => `${f.label} (${(f.weight * 100).toFixed(0)}%)`)
+                      .join(' · ')}
+                    . Hover factors or the grade badge for details.
                   </p>
                 </div>
               </div>

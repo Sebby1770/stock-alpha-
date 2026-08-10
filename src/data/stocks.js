@@ -1,8 +1,10 @@
+import { calcQuantScore, gradeFromScore } from '../lib/quant.js';
+
 // Seeded RNG for deterministic price history
 const createRng = (seed) => {
   let s = seed >>> 0;
   return () => {
-    s = Math.imul(1664525, s) + 1013904223 >>> 0;
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
     return s / 4294967296;
   };
 };
@@ -17,7 +19,7 @@ export const generatePriceHistory = (basePrice, ticker, days = 90) => {
   const startDate = new Date(endDate);
   startDate.setDate(startDate.getDate() - days);
 
-  let price = basePrice * (0.80 + rng() * 0.28);
+  let price = basePrice * (0.8 + rng() * 0.28);
 
   for (let i = 0; i <= days; i++) {
     const date = new Date(startDate);
@@ -44,31 +46,7 @@ export const generatePriceHistory = (basePrice, ticker, days = 90) => {
   return history;
 };
 
-export const gradeFromScore = (score) => {
-  if (score >= 4.7) return 'A+';
-  if (score >= 4.3) return 'A';
-  if (score >= 3.8) return 'A-';
-  if (score >= 3.4) return 'B+';
-  if (score >= 2.9) return 'B';
-  if (score >= 2.4) return 'B-';
-  if (score >= 2.0) return 'C+';
-  if (score >= 1.5) return 'C';
-  if (score >= 1.0) return 'C-';
-  if (score >= 0.5) return 'D';
-  return 'F';
-};
-
-export const calcQuantScore = (factors) => {
-  const { value, growth, momentum, profitability, revisions } = factors;
-  return (
-    value * 0.20 +
-    growth * 0.25 +
-    momentum * 0.20 +
-    profitability * 0.20 +
-    revisions * 0.15
-  );
-};
-
+/** Raw stock universe (factor scores are inputs; composite score derived via quant engine) */
 const raw = [
   {
     ticker: 'NVDA', name: 'NVIDIA Corporation', price: 875.40, sector: 'Technology',
@@ -133,7 +111,7 @@ const raw = [
     factors: { value: 1.8, growth: 5.0, momentum: 4.6, profitability: 4.5, revisions: 4.9 },
     priceTarget: 1100, analystRating: 'Strong Buy',
     community: { buy: 211, hold: 67, sell: 29 },
-    description: 'Eli Lilly leads in GLP-1 drugs (Mounjaro, Zepbound) for diabetes and obesity. Pipeline depth in Alzheimer\'s and oncology supports multi-year revenue expansion.',
+    description: "Eli Lilly leads in GLP-1 drugs (Mounjaro, Zepbound) for diabetes and obesity. Pipeline depth in Alzheimer's and oncology supports multi-year revenue expansion.",
     weekHigh52: 972.53, weekLow52: 621.48,
   },
   {
@@ -166,7 +144,7 @@ const raw = [
     factors: { value: 3.5, growth: 3.8, momentum: 3.7, profitability: 5.0, revisions: 3.9 },
     priceTarget: 330, analystRating: 'Buy',
     community: { buy: 167, hold: 88, sell: 19 },
-    description: 'Visa is the world\'s largest payment network. Near-monopoly economics, rising cross-border volumes, and emerging market penetration support durable compounding.',
+    description: "Visa is the world's largest payment network. Near-monopoly economics, rising cross-border volumes, and emerging market penetration support durable compounding.",
     weekHigh52: 290.96, weekLow52: 230.34,
   },
   {
@@ -188,7 +166,7 @@ const raw = [
     factors: { value: 4.5, growth: 3.5, momentum: 3.6, profitability: 4.0, revisions: 3.8 },
     priceTarget: 255, analystRating: 'Buy',
     community: { buy: 143, hold: 91, sell: 28 },
-    description: 'JPMorgan is America\'s largest bank by assets. Investment banking revenue, net interest income, and disciplined risk management under Jamie Dimon make it a financial bellwether.',
+    description: "JPMorgan is America's largest bank by assets. Investment banking revenue, net interest income, and disciplined risk management under Jamie Dimon make it a financial bellwether.",
     weekHigh52: 280.25, weekLow52: 158.48,
   },
   {
@@ -199,7 +177,7 @@ const raw = [
     factors: { value: 2.5, growth: 3.6, momentum: 4.1, profitability: 4.2, revisions: 3.8 },
     priceTarget: 1000, analystRating: 'Buy',
     community: { buy: 132, hold: 84, sell: 22 },
-    description: 'Costco\'s membership model delivers predictable, high-quality revenue with extraordinary member loyalty. Expansion into new markets and digital channels provide growth runway.',
+    description: "Costco's membership model delivers predictable, high-quality revenue with extraordinary member loyalty. Expansion into new markets and digital channels provide growth runway.",
     weekHigh52: 1007.90, weekLow52: 658.06,
   },
   {
@@ -221,7 +199,7 @@ const raw = [
     factors: { value: 4.8, growth: 2.8, momentum: 3.0, profitability: 3.8, revisions: 3.2 },
     priceTarget: 510, analystRating: 'Buy',
     community: { buy: 118, hold: 98, sell: 15 },
-    description: 'Berkshire Hathaway is Warren Buffett\'s conglomerate holding GEICO, BNSF, and major equity stakes. Record cash reserves position it for opportunistic acquisitions.',
+    description: "Berkshire Hathaway is Warren Buffett's conglomerate holding GEICO, BNSF, and major equity stakes. Record cash reserves position it for opportunistic acquisitions.",
     weekHigh52: 496.72, weekLow52: 334.18,
   },
   {
@@ -254,7 +232,7 @@ const raw = [
     factors: { value: 1.8, growth: 4.2, momentum: 2.4, profitability: 2.8, revisions: 3.2 },
     priceTarget: 200, analystRating: 'Buy',
     community: { buy: 134, hold: 108, sell: 52 },
-    description: 'AMD competes in CPUs (Ryzen, EPYC) and GPUs (Instinct MI300). MI300X AI accelerator demand is strong but NVIDIA\'s CUDA ecosystem remains the key competitive moat to overcome.',
+    description: "AMD competes in CPUs (Ryzen, EPYC) and GPUs (Instinct MI300). MI300X AI accelerator demand is strong but NVIDIA's CUDA ecosystem remains the key competitive moat to overcome.",
     weekHigh52: 227.30, weekLow52: 117.46,
   },
   {
@@ -298,7 +276,7 @@ const raw = [
     factors: { value: 2.4, growth: 2.8, momentum: 3.5, profitability: 2.8, revisions: 3.0 },
     priceTarget: 98, analystRating: 'Hold',
     community: { buy: 94, hold: 128, sell: 38 },
-    description: 'Walmart is the world\'s largest retailer. Advertising and membership revenue growth improve its business mix, but the stock\'s elevated valuation limits near-term upside.',
+    description: "Walmart is the world's largest retailer. Advertising and membership revenue growth improve its business mix, but the stock's elevated valuation limits near-term upside.",
     weekHigh52: 105.30, weekLow52: 59.31,
   },
   {
@@ -331,7 +309,7 @@ const raw = [
     factors: { value: 0.4, growth: 3.8, momentum: 3.5, profitability: 1.5, revisions: 2.5 },
     priceTarget: 22, analystRating: 'Sell',
     community: { buy: 156, hold: 82, sell: 95 },
-    description: 'Palantir builds AI/data analytics platforms for government and commercial clients. AIP momentum is real but the stock\'s extreme valuation requires multi-decade execution to justify.',
+    description: "Palantir builds AI/data analytics platforms for government and commercial clients. AIP momentum is real but the stock's extreme valuation requires multi-decade execution to justify.",
     weekHigh52: 49.49, weekLow52: 14.89,
   },
   {
@@ -347,7 +325,7 @@ const raw = [
   },
 ];
 
-// Attach computed fields and price history
+/** Enrich raw rows with quant scores, grades, and price history */
 export const stocks = raw.map((s) => {
   const quantScore = Math.round(calcQuantScore(s.factors) * 100) / 100;
   const quantGrade = gradeFromScore(quantScore);
@@ -368,7 +346,24 @@ export const stocks = raw.map((s) => {
   };
 });
 
-export const getStockByTicker = (ticker) =>
-  stocks.find((s) => s.ticker === ticker?.toUpperCase());
+export const getStockByTicker = (ticker) => {
+  if (!ticker) return undefined;
+  const t = String(ticker).toUpperCase();
+  return stocks.find((s) => s.ticker.toUpperCase() === t);
+};
+
+export const searchStocks = (query, limit = 8) => {
+  const q = String(query ?? '').trim().toLowerCase();
+  if (!q) return [];
+  return stocks
+    .filter(
+      (s) =>
+        s.ticker.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q),
+    )
+    .slice(0, limit);
+};
 
 export const sectors = [...new Set(stocks.map((s) => s.sector))].sort();
+
+export const allTickers = stocks.map((s) => s.ticker);

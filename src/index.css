@@ -19,6 +19,57 @@
     min-height: 100vh;
   }
 
+  /* Light theme overrides via html class */
+  html.theme-light body,
+  html.theme-light {
+    color-scheme: light;
+  }
+
+  html.theme-light body {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  html.theme-light .bg-navy-900 { background-color: #f1f5f9 !important; }
+  html.theme-light .bg-navy-950,
+  html.theme-light .bg-navy-950\/60 { background-color: #e2e8f0 !important; }
+  html.theme-light .bg-navy-850 { background-color: #e2e8f0 !important; }
+  html.theme-light .bg-navy-800 { background-color: #ffffff !important; }
+  html.theme-light .bg-navy-750 { background-color: #f8fafc !important; }
+  html.theme-light .bg-navy-700 { background-color: #e2e8f0 !important; }
+  html.theme-light .bg-navy-600 { background-color: #cbd5e1 !important; }
+  html.theme-light .border-navy-700,
+  html.theme-light .border-navy-600,
+  html.theme-light .border-navy-500 { border-color: #cbd5e1 !important; }
+  html.theme-light .text-slate-100 { color: #0f172a !important; }
+  html.theme-light .text-slate-200 { color: #1e293b !important; }
+  html.theme-light .text-slate-300 { color: #334155 !important; }
+  html.theme-light .text-slate-400 { color: #64748b !important; }
+  html.theme-light .text-slate-500 { color: #64748b !important; }
+  html.theme-light .glass {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: #cbd5e1 !important;
+  }
+  html.theme-light .card,
+  html.theme-light .card-hover {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.04);
+  }
+  html.theme-light .input,
+  html.theme-light .select {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+  html.theme-light .table-row:hover {
+    background-color: #f8fafc !important;
+  }
+  html.theme-light .glow-card {
+    background: linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(99,102,241,0.04) 50%, #fff 100%) !important;
+    border-color: rgba(59,130,246,0.25) !important;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -28,13 +79,26 @@
     background: #0d1526;
   }
 
+  html.theme-light ::-webkit-scrollbar-track {
+    background: #e2e8f0;
+  }
+
   ::-webkit-scrollbar-thumb {
     background: #243659;
     border-radius: 3px;
   }
 
+  html.theme-light ::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+  }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #2d4370;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.55);
+    outline-offset: 2px;
   }
 }
 
@@ -48,15 +112,15 @@
   }
 
   .btn-primary {
-    @apply bg-brand-blue hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
+    @apply bg-brand-blue hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900;
   }
 
   .btn-secondary {
-    @apply bg-navy-700 hover:bg-navy-600 border border-navy-500 text-slate-300 hover:text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm;
+    @apply bg-navy-700 hover:bg-navy-600 border border-navy-500 text-slate-300 hover:text-white font-medium px-4 py-2 rounded-lg transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50;
   }
 
   .btn-ghost {
-    @apply hover:bg-navy-700 text-slate-400 hover:text-slate-200 font-medium px-3 py-1.5 rounded-lg transition-colors text-sm;
+    @apply hover:bg-navy-700 text-slate-400 hover:text-slate-200 font-medium px-3 py-1.5 rounded-lg transition-colors text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50;
   }
 
   .input {
@@ -128,6 +192,18 @@
 
   .animate-slide-up {
     animation: slideUp 0.4s ease-out forwards;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-navy-700 rounded-lg;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.04) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
   }
 }
 
