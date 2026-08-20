@@ -84,3 +84,171 @@ export function equityReturns(curve) {
   }
   return out;
 }
+
+function finiteSeries(returns) {
+  if (!Array.isArray(returns)) return [];
+  return returns.map(Number).filter((n) => Number.isFinite(n));
+}
+
+function alignFinite(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return [[], []];
+  const n = Math.min(a.length, b.length);
+  const xs = [];
+  const ys = [];
+  for (let i = 0; i < n; i += 1) {
+    const x = Number(a[i]);
+    const y = Number(b[i]);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      xs.push(x);
+      ys.push(y);
+    }
+  }
+  return [xs, ys];
+}
+
+/**
+ * Sample stdev of min(r − mar, 0). Zero with fewer than 2 returns.
+ */
+export function downsideDeviation(returns, mar = 0) {
+  const xs = finiteSeries(returns);
+  if (xs.length < 2) return 0;
+  const hurdle = Number.isFinite(Number(mar)) ? Number(mar) : 0;
+  const downs = xs.map((r) => Math.min(r - hurdle, 0));
+  return volatility(downs);
+}
+
+/**
+ * Annualized Sortino: (mean − rf/periods) / downsideDeviation × √periods.
+ */
+export function sortino(returns, { rf = 0, periods = 252, mar = 0 } = {}) {
+  const xs = finiteSeries(returns);
+  if (xs.length < 2) return 0;
+  const dd = downsideDeviation(xs, mar);
+  if (dd === 0) return 0;
+  const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const per = Number(periods) > 0 ? Number(periods) : 252;
+  const excess = mean - Number(rf) / per;
+  const value = (excess / dd) * Math.sqrt(per);
+  return Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Calmar: annualized return / max drawdown.
+ * Ann. return is (last/first)^(periods/(length−1)) − 1.
+ */
+export function calmar(equityCurve, { periods = 252 } = {}) {
+  const xs = toValues(equityCurve);
+  if (xs.length < 2) return 0;
+  const dd = maxDrawdown(xs);
+  if (!(dd > 0)) return 0;
+  const first = xs[0];
+  const last = xs[xs.length - 1];
+  if (!(first > 0)) return 0;
+  const n = xs.length - 1;
+  const per = Number(periods) > 0 ? Number(periods) : 252;
+  const ann = (last / first) ** (per / n) - 1;
+  if (!Number.isFinite(ann)) return 0;
+  const value = ann / dd;
+  return Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * OLS beta vs a benchmark (cov / var of the aligned inner series).
+ */
+export function beta(assetReturns, benchmarkReturns) {
+  const [xs, ys] = alignFinite(assetReturns, benchmarkReturns);
+  if (xs.length < 2) return 0;
+  const n = xs.length;
+  let sx = 0;
+  let sy = 0;
+  for (let i = 0; i < n; i += 1) {
+    sx += xs[i];
+    sy += ys[i];
+  }
+  const mx = sx / n;
+  const my = sy / n;
+  let cov = 0;
+  let varY = 0;
+  for (let i = 0; i < n; i += 1) {
+    const dy = ys[i] - my;
+    cov += (xs[i] - mx) * dy;
+    varY += dy * dy;
+  }
+  if (varY === 0) return 0;
+  const value = cov / varY;
+  return Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Annualized tracking error: sample stdev of (asset − bench) × √periods.
+ */
+export function trackingError(assetReturns, benchmarkReturns, { periods = 252 } = {}) {
+  const [xs, ys] = alignFinite(assetReturns, benchmarkReturns);
+  if (xs.length < 2) return 0;
+  const diffs = xs.map((x, i) => x - ys[i]);
+  const per = Number(periods) > 0 ? Number(periods) : 252;
+  const te = volatility(diffs) * Math.sqrt(per);
+  return Number.isFinite(te) ? te : 0;
+}
+
+/**
+ * Annualized information ratio: mean(asset − bench) / stdev(asset − bench) × √periods.
+ */
+export function informationRatio(assetReturns, benchmarkReturns, { periods = 252 } = {}) {
+  const [xs, ys] = alignFinite(assetReturns, benchmarkReturns);
+  if (xs.length < 2) return 0;
+  const diffs = xs.map((x, i) => x - ys[i]);
+  const vol = volatility(diffs);
+  if (vol === 0) return 0;
+  const mean = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+  const per = Number(periods) > 0 ? Number(periods) : 252;
+  const value = (mean / vol) * Math.sqrt(per);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function monthKey(date) {
+  if (date instanceof Date && Number.isFinite(date.getTime())) {
+    return date.toISOString().slice(0, 7);
+  }
+  const s = String(date ?? '');
+  if (/^\d{4}-\d{2}/.test(s)) return s.slice(0, 7);
+  const d = new Date(s);
+  if (Number.isFinite(d.getTime())) return d.toISOString().slice(0, 7);
+  return '';
+}
+
+/**
+ * Month-by-month simple returns from `{ date, value }` or `{ date, price }` points.
+ * Numeric series have no calendar, so the result is empty.
+ * Months with fewer than 2 points are skipped.
+ */
+export function monthlyReturns(equityCurve) {
+  if (!Array.isArray(equityCurve) || equityCurve.length === 0) return [];
+  const probe = equityCurve.find((pt) => pt != null);
+  if (typeof probe === 'number') return [];
+
+  const groups = new Map();
+  for (const pt of equityCurve) {
+    if (!pt || typeof pt !== 'object' || pt.date == null) continue;
+    const month = monthKey(pt.date);
+    if (!month) continue;
+    const raw = pt.value != null ? pt.value : pt.price;
+    const val = Number(raw);
+    if (!Number.isFinite(val)) continue;
+    const bucket = groups.get(month);
+    if (bucket) bucket.push(val);
+    else groups.set(month, [val]);
+  }
+
+  const out = [];
+  for (const [month, xs] of groups) {
+    if (xs.length < 2) continue;
+    const first = xs[0];
+    const last = xs[xs.length - 1];
+    if (first === 0) continue;
+    const ret = last / first - 1;
+    if (!Number.isFinite(ret)) continue;
+    out.push({ month, ret });
+  }
+  return out;
+}

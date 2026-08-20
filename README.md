@@ -1,8 +1,8 @@
-# AlphaRank 6.0 — Quant Stock Analysis Platform
+# AlphaRank 7.0 — Quant Stock Analysis Platform
 
 **Live site:** [https://sebby1770.github.io/stock-alpha-/](https://sebby1770.github.io/stock-alpha-/)
 
-> Factor-based quant ratings, stock screener **presets**, watchlist, compare mode, crowdsourced analysis, a **paper broker** with rebalance plans, contribution, share snapshots, dividends, as-of marks, stops and realized P&L, a factor **Lab**, **alerts**, a return **correlation matrix**, and **Monte Carlo Simulate** — built as an educational demo with **mock data only**.
+> Factor-based quant ratings, stock screener **presets**, watchlist, compare mode, crowdsourced analysis, a **paper broker** with rebalance plans, contribution, share snapshots, dividends, as-of marks, stops and realized P&L, a factor **Lab**, **alerts**, a return **correlation matrix**, **Monte Carlo Simulate**, and **Optimize** (inverse-vol / min-variance) — built as an educational demo with **mock data only**.
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
 
@@ -46,7 +46,9 @@
 - Factor attribution: value-weighted holdings vs equal-weight universe
 - **P&L contribution** table (weight and share of unrealized P&L)
 - **Rebalance** card: equal- or score-weight plan among lots (optional top N); **Apply plan** submits sells then buys — never auto-executes
-- Risk strip: max drawdown, Sharpe (from the mock curve), HHI concentration
+- Risk strip: max drawdown, Sharpe, HHI, plus **Sortino**, **Calmar**, and **Beta** vs the equal-weight mock universe
+- **Harvest** card: lots beyond 5% unrealized loss at last mock price
+- **Monthly heatmap** of first-to-last mock equity returns
 - Reset restores sample lots **and** $100,000 cash
 
 ### Lab (`/lab`)
@@ -66,6 +68,11 @@
 ### Simulate (`/simulate`)
 - Bootstrap Monte Carlo on equal-weight mock universe daily returns
 - Fan chart of p5–p95 with median path; educational only — not a forecast
+
+### Optimize (`/optimize`)
+- Inverse-vol and min-variance weights on the top N names by quantScore
+- Mean-variance **efficient frontier** (daily risk vs mean return) on aligned mock histories
+- Educational only — not advice, not live optimization
 
 ### UX
 - Navbar search → stock detail; press **`/`** to focus search
@@ -94,7 +101,7 @@
 ```bash
 npm install
 npm run dev      # Vite dev server
-npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution, share, dividends, as-of, presets, rebalance, montecarlo, contribution)
+npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution, share, dividends, as-of, presets, rebalance, montecarlo, contribution, optimize, harvest)
 npm run test:watch
 npm run build    # Production build (uses VITE_BASE)
 npm run preview  # Preview dist/
@@ -140,7 +147,7 @@ src/
 │   ├── asof.test.js
 │   ├── stops.js            # Stop-loss / take-profit evaluator
 │   ├── stops.test.js
-│   ├── risk.js             # Drawdown, vol, Sharpe, HHI, returns
+│   ├── risk.js             # Drawdown, vol, Sharpe, Sortino, Calmar, beta, IR, monthly
 │   ├── risk.test.js
 │   ├── backtest.js         # Momentum + static-factor vs equal-weight B&H
 │   ├── backtest.test.js
@@ -156,6 +163,10 @@ src/
 │   ├── montecarlo.test.js
 │   ├── contribution.js     # Holding P&L contribution
 │   ├── contribution.test.js
+│   ├── optimize.js         # Inverse-vol, min-variance, efficient frontier
+│   ├── optimize.test.js
+│   ├── harvest.js          # Tax-loss harvest candidates
+│   ├── harvest.test.js
 │   ├── storage.js          # localStorage helpers
 │   └── format.js           # Display formatters
 ├── context/
@@ -182,7 +193,8 @@ src/
     ├── Lab.jsx
     ├── Alerts.jsx
     ├── Matrix.jsx
-    └── Simulate.jsx
+    ├── Simulate.jsx
+    └── Optimize.jsx
 ```
 
 ---

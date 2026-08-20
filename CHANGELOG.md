@@ -5,6 +5,19 @@ All notable changes to AlphaRank are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [7.0.0] — 2026-08-20
+
+### Added
+- Risk extras (`src/lib/risk.js`): `downsideDeviation`, `sortino`, `calmar`, `beta`, `trackingError`, `informationRatio`, `monthlyReturns`
+- Optimizer (`src/lib/optimize.js`) and **Optimize** at `/optimize`: inverse-vol and min-variance weights on top-N quantScore names, mean-variance frontier chart; sidebar Tools + command palette
+- Tax-loss harvest (`src/lib/harvest.js`): `harvestCandidates` lists lots beyond a 5% unrealized-loss floor
+- Portfolio: Sortino / Calmar / Beta vs equal-weight universe, harvest card, monthly return heatmap
+- Vitest: `optimize.test.js`, `harvest.test.js`, plus coverage for the new risk metrics
+
+### Changed
+- Version bumped to 7.0.0
+- README 7.0 feature list (Optimize, Sortino/Calmar/Beta, harvest, monthly heatmap)
+
 ## [6.0.0] — 2026-08-20
 
 ### Added

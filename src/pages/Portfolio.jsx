@@ -4,6 +4,7 @@ import {
   Briefcase, TrendingUp, PieChart, DollarSign, Trash2, RotateCcw,
   ArrowDownRight, ArrowUpRight, Wallet, Activity, Shield,
   Download, Flag, Layers, Link2, Upload, Landmark, Scale, Percent,
+  Scissors, CalendarRange, Target,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { usePortfolio } from '../context/PortfolioContext';
@@ -12,7 +13,9 @@ import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
 import EmptyState from '../components/common/EmptyState';
 import WatchlistButton from '../components/common/WatchlistButton';
-import { maxDrawdown, sharpe, herfindahl, equityReturns } from '../lib/risk';
+import { maxDrawdown, sharpe, herfindahl, equityReturns, sortino, calmar, beta, monthlyReturns } from '../lib/risk';
+import { harvestCandidates } from '../lib/harvest';
+import { equalWeightDailyReturns } from '../lib/montecarlo';
 import { ledgerToCsv, parseBookJson } from '../lib/broker';
 import { factorAttribution } from '../lib/attribution';
 import { FACTOR_KEYS, FACTOR_META } from '../lib/quant';
@@ -125,12 +128,26 @@ export default function Portfolio() {
     const rets = equityReturns(equityCurve);
     const mv = displayMv;
     const weights = mv > 0 ? holdings.map((h) => h.currentVal / mv) : [];
+    const bench = equalWeightDailyReturns(stocks);
+    const n = Math.min(rets.length, bench.length);
+    const asset = n > 0 ? rets.slice(-n) : [];
+    const bm = n > 0 ? bench.slice(-n) : [];
     return {
       maxDd: maxDrawdown(equityCurve),
       sharpe: sharpe(rets),
       hhi: herfindahl(weights),
+      sortino: sortino(rets),
+      calmar: calmar(equityCurve),
+      beta: beta(asset, bm),
     };
   }, [equityCurve, holdings, displayMv]);
+
+  const harvest = useMemo(
+    () => harvestCandidates(rawHoldings, (t) => stocks.find((s) => s.ticker === t)?.price),
+    [rawHoldings],
+  );
+
+  const months = useMemo(() => monthlyReturns(equityCurve), [equityCurve]);
 
   const pieData = [
     ...holdings
@@ -504,6 +521,90 @@ export default function Portfolio() {
             {holdings.length ? avgQuant.toFixed(2) : '—'}
           </div>
           <div className="text-xs text-slate-500">Portfolio quality score</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="stat-card">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5">
+            <TrendingUp size={12} aria-hidden="true" /> Sortino
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-blue">
+            {Number.isFinite(risk.sortino) ? risk.sortino.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-slate-500">Ann. vs downside of mock returns</div>
+        </div>
+        <div className="stat-card">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Scale size={12} aria-hidden="true" /> Calmar
+          </div>
+          <div className="text-xl font-extrabold font-mono text-slate-100">
+            {Number.isFinite(risk.calmar) ? risk.calmar.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-slate-500">Ann. return / max drawdown</div>
+        </div>
+        <div className="stat-card">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Target size={12} aria-hidden="true" /> Beta vs universe
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-purple">
+            {Number.isFinite(risk.beta) ? risk.beta.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-slate-500">Vs equal-weight mock universe</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="card p-5">
+          <h2 className="section-title mb-3">
+            <Scissors size={16} className="text-brand-red" aria-hidden="true" /> Harvest
+          </h2>
+          <p className="text-xs text-slate-500 mb-3">Unrealized losses ≥ 5% at last mock price</p>
+          {harvest.length === 0 ? (
+            <p className="text-sm text-slate-500">No lots beyond 5% unrealized loss</p>
+          ) : (
+            <ul className="space-y-2">
+              {harvest.map((row) => (
+                <li key={row.ticker} className="flex items-center gap-2 text-sm">
+                  <span className="font-bold text-slate-200">{row.ticker}</span>
+                  <span className="text-xs text-slate-500">{row.shares} sh</span>
+                  <span className="ml-auto font-mono text-brand-red">
+                    −{fmtMoney(row.loss)} · {(row.lossPct * 100).toFixed(1)}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="card p-5">
+          <h2 className="section-title mb-3">
+            <CalendarRange size={16} className="text-brand-blue" aria-hidden="true" /> Monthly heatmap
+          </h2>
+          <p className="text-xs text-slate-500 mb-3">First-to-last mock equity in each month</p>
+          {months.length === 0 ? (
+            <p className="text-sm text-slate-500">No complete months on the mock curve</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {months.map((m) => (
+                <div
+                  key={m.month}
+                  className={clsx(
+                    'rounded-md px-2 py-1.5 text-center min-w-[4.5rem]',
+                    m.ret >= 0 ? 'bg-brand-green/15' : 'bg-brand-red/15',
+                  )}
+                >
+                  <div className="text-[10px] text-slate-500">{m.month}</div>
+                  <div className={clsx(
+                    'text-xs font-mono font-semibold',
+                    m.ret >= 0 ? 'text-brand-green' : 'text-brand-red',
+                  )}
+                  >
+                    {m.ret >= 0 ? '+' : ''}{(m.ret * 100).toFixed(1)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

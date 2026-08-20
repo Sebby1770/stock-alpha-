@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, LayoutDashboard, SlidersHorizontal, FlaskConical, Bell,
-  Grid3x3, Briefcase, Star, GitCompare, TrendingUp, LineChart,
+  Grid3x3, Briefcase, Star, GitCompare, TrendingUp, LineChart, PieChart,
 } from 'lucide-react';
 import { stocks } from '../../data/stocks';
 import clsx from 'clsx';
@@ -14,6 +14,7 @@ const ROUTES = [
   { label: 'Alerts', to: '/alerts', icon: Bell },
   { label: 'Matrix', to: '/matrix', icon: Grid3x3 },
   { label: 'Simulate', to: '/simulate', icon: LineChart },
+  { label: 'Optimize', to: '/optimize', icon: PieChart },
   { label: 'Portfolio', to: '/portfolio', icon: Briefcase },
   { label: 'Watchlist', to: '/watchlist', icon: Star },
   { label: 'Compare', to: '/compare', icon: GitCompare },

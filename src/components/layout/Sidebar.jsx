@@ -11,6 +11,7 @@ import {
   Bell,
   Grid3x3,
   LineChart,
+  PieChart,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useWatchlist } from '../../context/WatchlistContext';
@@ -31,6 +32,7 @@ const toolItems = [
   { to: '/alerts', icon: Bell, label: 'Alerts', badge: 'alerts' },
   { to: '/matrix', icon: Grid3x3, label: 'Matrix' },
   { to: '/simulate', icon: LineChart, label: 'Simulate' },
+  { to: '/optimize', icon: PieChart, label: 'Optimize' },
 ];
 
 function NavGroup({ title, items, badgeFor }) {
