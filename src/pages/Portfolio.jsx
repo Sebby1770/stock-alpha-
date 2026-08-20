@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Briefcase, TrendingUp, Plus, PieChart, DollarSign, Trash2, RotateCcw, X,
+  Briefcase, TrendingUp, PieChart, DollarSign, Trash2, RotateCcw,
+  ArrowDownRight, ArrowUpRight, Wallet, Activity, Shield,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { usePortfolio } from '../context/PortfolioContext';
@@ -10,6 +11,8 @@ import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
 import EmptyState from '../components/common/EmptyState';
 import WatchlistButton from '../components/common/WatchlistButton';
+import { maxDrawdown, sharpe, herfindahl, equityReturns } from '../lib/risk';
+import { fmtMoney } from '../lib/format';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -17,82 +20,111 @@ import {
 } from 'recharts';
 
 const fmtBig = (n) => {
+  if (!Number.isFinite(n)) return '—';
   if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#06b6d4', '#f97316', '#14b8a6', '#6366f1', '#ec4899', '#84cc16'];
 
-const buildEquityCurve = (holdings) => {
-  if (!holdings.length) return [];
-  const days = holdings[0].stock.priceHistory.length;
+const buildEquityCurve = (holdings, cash) => {
+  const hist = holdings[0]?.stock?.priceHistory;
+  if (!hist?.length) return [];
+  const days = hist.length;
   return Array.from({ length: days }, (_, i) => {
-    const total = holdings.reduce((sum, h) => {
+    const mv = holdings.reduce((sum, h) => {
       const pt = h.stock.priceHistory[i];
       return sum + (pt ? pt.price * h.shares : 0);
     }, 0);
     return {
-      date: holdings[0].stock.priceHistory[i].date,
-      value: Math.round(total * 100) / 100,
+      date: hist[i].date,
+      value: Math.round((cash + mv) * 100) / 100,
     };
   });
 };
 
 export default function Portfolio() {
   const navigate = useNavigate();
-  const { enriched, addPosition, removePosition, resetToDefault } = usePortfolio();
-  const [sortKey] = useState('currentVal');
-  const [sortDir] = useState('desc');
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ ticker: '', shares: '', entryPrice: '' });
-  const [formError, setFormError] = useState('');
+  const {
+    enriched, cash, equity, pnl, marketValue, ledger,
+    buyStock, sellStock, removePosition, resetToDefault,
+  } = usePortfolio();
+  const [buyForm, setBuyForm] = useState({ ticker: '', shares: '' });
+  const [sellForm, setSellForm] = useState({ ticker: '', shares: '' });
+  const [buyError, setBuyError] = useState('');
+  const [sellError, setSellError] = useState('');
 
   const holdings = enriched;
-  const totalValue = holdings.reduce((s, h) => s + h.currentVal, 0);
   const totalCost = holdings.reduce((s, h) => s + h.costBasis, 0);
-  const totalGain = totalValue - totalCost;
-  const totalGainPct = totalCost ? (totalGain / totalCost) * 100 : 0;
   const dailyPnL = holdings.reduce((s, h) => s + h.stock.change * h.shares, 0);
-  const equityCurve = useMemo(() => buildEquityCurve(holdings), [holdings]);
+  const equityCurve = useMemo(() => buildEquityCurve(holdings, cash), [holdings, cash]);
 
-  const sorted = [...holdings].sort((a, b) => {
-    const av = a[sortKey] ?? 0;
-    const bv = b[sortKey] ?? 0;
-    return sortDir === 'desc' ? bv - av : av - bv;
-  });
+  const risk = useMemo(() => {
+    const rets = equityReturns(equityCurve);
+    const mv = marketValue;
+    const weights = mv > 0 ? holdings.map((h) => h.currentVal / mv) : [];
+    return {
+      maxDd: maxDrawdown(equityCurve),
+      sharpe: sharpe(rets),
+      hhi: herfindahl(weights),
+    };
+  }, [equityCurve, holdings, marketValue]);
 
-  const pieData = holdings
-    .slice()
-    .sort((a, b) => b.currentVal - a.currentVal)
-    .map((h) => ({
-      name: h.ticker,
-      value: totalValue ? Math.round((h.currentVal / totalValue) * 100) : 0,
-    }));
+  const pieData = [
+    ...holdings
+      .slice()
+      .sort((a, b) => b.currentVal - a.currentVal)
+      .map((h) => ({
+        name: h.ticker,
+        value: equity > 0 ? Math.round((h.currentVal / equity) * 1000) / 10 : 0,
+      })),
+    ...(cash > 0 && equity > 0
+      ? [{ name: 'CASH', value: Math.round((cash / equity) * 1000) / 10 }]
+      : []),
+  ];
 
   const avgQuant = holdings.length
     ? holdings.reduce((s, h) => s + h.stock.quantScore, 0) / holdings.length
     : 0;
 
-  const submitPosition = (e) => {
-    e.preventDefault();
-    setFormError('');
-    const result = addPosition(form.ticker, form.shares, form.entryPrice || undefined);
-    if (!result.ok) {
-      setFormError(result.error || 'Could not add position');
-      return;
-    }
-    setForm({ ticker: '', shares: '', entryPrice: '' });
-    setShowForm(false);
+  const recentLedger = [...ledger].reverse().slice(0, 20);
+
+  const onBuyTicker = (ticker) => setBuyForm((f) => ({ ...f, ticker }));
+  const onSellTicker = (ticker) => {
+    const lot = holdings.find((h) => h.ticker === ticker);
+    setSellForm({ ticker, shares: lot ? String(lot.shares) : '' });
   };
 
-  const onTickerChange = (ticker) => {
-    const stock = stocks.find((s) => s.ticker === ticker.toUpperCase());
-    setForm((f) => ({
-      ...f,
-      ticker,
-      entryPrice: stock && !f.entryPrice ? String(stock.price.toFixed(2)) : f.entryPrice,
-    }));
+  const submitBuy = (e) => {
+    e.preventDefault();
+    setBuyError('');
+    const result = buyStock(buyForm.ticker, buyForm.shares);
+    if (!result.ok) {
+      setBuyError(result.error || 'Could not buy');
+      return;
+    }
+    setBuyForm({ ticker: '', shares: '' });
   };
+
+  const submitSell = (e) => {
+    e.preventDefault();
+    setSellError('');
+    const result = sellStock(sellForm.ticker, sellForm.shares);
+    if (!result.ok) {
+      setSellError(result.error || 'Could not sell');
+      return;
+    }
+    setSellForm({ ticker: '', shares: '' });
+  };
+
+  const buyStockRow = stocks.find((s) => s.ticker === buyForm.ticker);
+  const buyNotional = buyStockRow && Number(buyForm.shares) > 0
+    ? buyStockRow.price * Number(buyForm.shares)
+    : 0;
+  const sellLot = holdings.find((h) => h.ticker === sellForm.ticker);
+  const sellNotional = sellLot && Number(sellForm.shares) > 0
+    ? sellLot.stock.price * Number(sellForm.shares)
+    : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -100,44 +132,102 @@ export default function Portfolio() {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-100 flex items-center gap-2">
             <Briefcase size={22} className="text-brand-purple" aria-hidden="true" />
-            Paper Portfolio
+            Paper Broker
           </h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            Local paper trading · positions saved in this browser
+            Cash ledger · fills at last mock price · saved in this browser
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={resetToDefault}
-            className="btn-secondary flex items-center gap-2"
-            title="Reset to sample holdings"
-          >
-            <RotateCcw size={14} /> Reset
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="btn-primary flex items-center gap-2"
-          >
-            {showForm ? <X size={14} /> : <Plus size={14} />}
-            {showForm ? 'Cancel' : 'Add Position'}
-          </button>
+        <button
+          type="button"
+          onClick={resetToDefault}
+          className="btn-secondary flex items-center gap-2"
+          title="Reset to sample holdings and $100,000 cash"
+        >
+          <RotateCcw size={14} /> Reset
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card p-5 glow-card">
+          <div className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">
+            <Wallet size={12} aria-hidden="true" /> Cash
+          </div>
+          <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(cash)}</div>
+          <div className="text-xs text-slate-500 mt-1">Settled buying power</div>
+        </div>
+        <div className="card p-5">
+          <div className="text-xs text-slate-400 mb-1">Equity</div>
+          <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(equity)}</div>
+          <div className="text-xs text-slate-500 mt-1">
+            Cash + MV {fmtBig(marketValue)}
+          </div>
+        </div>
+        <div className="card p-5">
+          <div className="text-xs text-slate-400 mb-1">Total P&amp;L</div>
+          <div className={clsx('text-2xl font-extrabold font-mono', pnl >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+            {pnl >= 0 ? '+' : ''}{fmtBig(pnl)}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">Unrealized vs cost {fmtBig(totalCost)}</div>
+        </div>
+        <div className="card p-5">
+          <div className="text-xs text-slate-400 mb-1">Today&apos;s P&amp;L</div>
+          <div className={clsx('text-2xl font-extrabold font-mono', dailyPnL >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+            {dailyPnL >= 0 ? '+' : ''}{fmtBig(dailyPnL)}
+          </div>
+          <div className="text-xs text-slate-500 mt-1">{holdings.length} open lots</div>
         </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={submitPosition} className="card p-5 animate-slide-up border-brand-blue/30">
-          <h2 className="section-title mb-4">Add paper position</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="stat-card">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Shield size={12} aria-hidden="true" /> Max drawdown
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-red">
+            {(risk.maxDd * 100).toFixed(2)}%
+          </div>
+          <div className="text-xs text-slate-500">Peak-to-trough on mock curve</div>
+        </div>
+        <div className="stat-card">
+          <div className="text-xs text-slate-400 flex items-center gap-1.5">
+            <Activity size={12} aria-hidden="true" /> Sharpe
+          </div>
+          <div className="text-xl font-extrabold font-mono text-brand-blue">
+            {Number.isFinite(risk.sharpe) ? risk.sharpe.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-slate-500">Ann. from daily mock returns</div>
+        </div>
+        <div className="stat-card">
+          <div className="text-xs text-slate-400">HHI concentration</div>
+          <div className="text-xl font-extrabold font-mono text-slate-100">
+            {risk.hhi.toFixed(3)}
+          </div>
+          <div className="text-xs text-slate-500">Σ w² of open lots (1 = single name)</div>
+        </div>
+        <div className="stat-card">
+          <div className="text-xs text-slate-400">Avg Quant Score</div>
+          <div className="text-xl font-extrabold font-mono text-brand-blue">
+            {holdings.length ? avgQuant.toFixed(2) : '—'}
+          </div>
+          <div className="text-xs text-slate-500">Portfolio quality score</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <form onSubmit={submitBuy} className="card p-5">
+          <h2 className="section-title mb-4">
+            <ArrowUpRight size={16} className="text-brand-green" aria-hidden="true" /> Buy
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label htmlFor="port-ticker" className="block text-xs text-slate-400 mb-1.5">Ticker</label>
+              <label htmlFor="buy-ticker" className="block text-xs text-slate-400 mb-1.5">Ticker</label>
               <select
-                id="port-ticker"
+                id="buy-ticker"
                 className="select"
                 required
-                value={form.ticker}
-                onChange={(e) => onTickerChange(e.target.value)}
+                value={buyForm.ticker}
+                onChange={(e) => onBuyTicker(e.target.value)}
               >
                 <option value="">Select…</option>
                 {stocks.map((s) => (
@@ -146,87 +236,95 @@ export default function Portfolio() {
               </select>
             </div>
             <div>
-              <label htmlFor="port-shares" className="block text-xs text-slate-400 mb-1.5">Shares</label>
+              <label htmlFor="buy-shares" className="block text-xs text-slate-400 mb-1.5">Shares</label>
               <input
-                id="port-shares"
+                id="buy-shares"
                 className="input"
                 type="number"
                 min="0.01"
                 step="any"
                 required
                 placeholder="e.g. 10"
-                value={form.shares}
-                onChange={(e) => setForm((f) => ({ ...f, shares: e.target.value }))}
+                value={buyForm.shares}
+                onChange={(e) => setBuyForm((f) => ({ ...f, shares: e.target.value }))}
               />
             </div>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">
+            Fill @ {buyStockRow ? fmtMoney(buyStockRow.price) : 'last price'}
+            {buyNotional > 0 ? ` · notional ${fmtMoney(buyNotional)}` : ''}
+          </p>
+          {buyError && <p className="text-sm text-brand-red mb-3" role="alert">{buyError}</p>}
+          <button type="submit" className="btn-primary">Buy at last price</button>
+        </form>
+
+        <form onSubmit={submitSell} className="card p-5">
+          <h2 className="section-title mb-4">
+            <ArrowDownRight size={16} className="text-brand-red" aria-hidden="true" /> Sell
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
-              <label htmlFor="port-entry" className="block text-xs text-slate-400 mb-1.5">Entry price</label>
+              <label htmlFor="sell-ticker" className="block text-xs text-slate-400 mb-1.5">Lot</label>
+              <select
+                id="sell-ticker"
+                className="select"
+                required
+                value={sellForm.ticker}
+                onChange={(e) => onSellTicker(e.target.value)}
+                disabled={holdings.length === 0}
+              >
+                <option value="">{holdings.length ? 'Select…' : 'No open lots'}</option>
+                {holdings.map((h) => (
+                  <option key={h.ticker} value={h.ticker}>
+                    {h.ticker} · {h.shares} sh @ {fmtMoney(h.entryPrice)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="sell-shares" className="block text-xs text-slate-400 mb-1.5">Shares</label>
               <input
-                id="port-entry"
+                id="sell-shares"
                 className="input"
                 type="number"
                 min="0.01"
                 step="any"
-                placeholder="Defaults to last price"
-                value={form.entryPrice}
-                onChange={(e) => setForm((f) => ({ ...f, entryPrice: e.target.value }))}
+                required
+                placeholder="e.g. 5"
+                value={sellForm.shares}
+                onChange={(e) => setSellForm((f) => ({ ...f, shares: e.target.value }))}
+                disabled={holdings.length === 0}
               />
             </div>
           </div>
-          {formError && <p className="text-sm text-brand-red mb-3" role="alert">{formError}</p>}
-          <button type="submit" className="btn-primary">Save position</button>
+          <p className="text-xs text-slate-500 mb-3">
+            Fill @ {sellLot ? fmtMoney(sellLot.stock.price) : 'last price'}
+            {sellNotional > 0 ? ` · proceeds ${fmtMoney(sellNotional)}` : ''}
+          </p>
+          {sellError && <p className="text-sm text-brand-red mb-3" role="alert">{sellError}</p>}
+          <button type="submit" className="btn-secondary" disabled={holdings.length === 0}>
+            Sell at last price
+          </button>
         </form>
-      )}
+      </div>
 
       {holdings.length === 0 ? (
         <div className="card">
           <EmptyState
             icon={Briefcase}
-            title="No positions yet"
-            description="Add a paper trade or reset to the sample portfolio. All data stays in localStorage."
+            title="No open lots"
+            description="Buy a name with cash, or reset to the sample book ($100,000 cash + seed positions). Mock data only."
             action={
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setShowForm(true)} className="btn-primary">Add position</button>
-                <button type="button" onClick={resetToDefault} className="btn-secondary">Load sample</button>
-              </div>
+              <button type="button" onClick={resetToDefault} className="btn-primary">Load sample book</button>
             }
           />
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="card p-5 glow-card">
-              <div className="text-xs text-slate-400 mb-1">Total Value</div>
-              <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(totalValue)}</div>
-              <div className={clsx('text-xs mt-1', totalGain >= 0 ? 'text-brand-green' : 'text-brand-red')}>
-                {totalGain >= 0 ? '+' : ''}{fmtBig(totalGain)} all-time
-              </div>
-            </div>
-            <div className="card p-5">
-              <div className="text-xs text-slate-400 mb-1">Total Return</div>
-              <div className={clsx('text-2xl font-extrabold font-mono', totalGainPct >= 0 ? 'text-brand-green' : 'text-brand-red')}>
-                {totalGainPct >= 0 ? '+' : ''}{totalGainPct.toFixed(2)}%
-              </div>
-              <div className="text-xs text-slate-500 mt-1">vs. cost basis {fmtBig(totalCost)}</div>
-            </div>
-            <div className="card p-5">
-              <div className="text-xs text-slate-400 mb-1">Today&apos;s P&amp;L</div>
-              <div className={clsx('text-2xl font-extrabold font-mono', dailyPnL >= 0 ? 'text-brand-green' : 'text-brand-red')}>
-                {dailyPnL >= 0 ? '+' : ''}{fmtBig(dailyPnL)}
-              </div>
-              <div className="text-xs text-slate-500 mt-1">{holdings.length} positions</div>
-            </div>
-            <div className="card p-5">
-              <div className="text-xs text-slate-400 mb-1">Avg Quant Score</div>
-              <div className="text-2xl font-extrabold font-mono text-brand-blue">{avgQuant.toFixed(2)}</div>
-              <div className="text-xs text-slate-500 mt-1">Portfolio quality score</div>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 card p-5">
               <h2 className="section-title mb-4">
-                <TrendingUp size={16} className="text-brand-green" aria-hidden="true" /> Portfolio Performance (90D)
+                <TrendingUp size={16} className="text-brand-green" aria-hidden="true" /> Equity curve (90D mock)
               </h2>
               <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={equityCurve} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -257,7 +355,7 @@ export default function Portfolio() {
                     contentStyle={{ background: '#0d1526', border: '1px solid #243659', borderRadius: 8 }}
                     labelStyle={{ color: '#94a3b8', fontSize: 12 }}
                     itemStyle={{ color: '#e2e8f0' }}
-                    formatter={(v) => [fmtBig(v), 'Portfolio']}
+                    formatter={(v) => [fmtBig(v), 'Equity']}
                     labelFormatter={(s) => new Date(s).toLocaleDateString()}
                   />
                   <Area
@@ -288,9 +386,9 @@ export default function Portfolio() {
                 </RPieChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2">
-                {pieData.slice(0, 6).map((d, i) => (
+                {pieData.slice(0, 8).map((d, i) => (
                   <div key={d.name} className="flex items-center gap-1.5 text-xs">
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i] }} />
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
                     <span className="text-slate-400">{d.name}</span>
                     <span className="text-slate-300 ml-auto font-mono">{d.value}%</span>
                   </div>
@@ -325,7 +423,7 @@ export default function Portfolio() {
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((h) => {
+                  {[...holdings].sort((a, b) => b.currentVal - a.currentVal).map((h) => {
                     const pos = h.gain >= 0;
                     const dayPos = h.stock.changePercent >= 0;
                     return (
@@ -375,7 +473,7 @@ export default function Portfolio() {
                             <WatchlistButton ticker={h.ticker} size={14} />
                             <button
                               type="button"
-                              aria-label={`Remove ${h.ticker} from portfolio`}
+                              aria-label={`Close ${h.ticker} position`}
                               onClick={() => removePosition(h.ticker)}
                               className="p-1.5 rounded-md text-slate-500 hover:text-brand-red hover:bg-brand-red/10 focus-visible:ring-2 focus-visible:ring-brand-blue/50"
                             >
@@ -392,6 +490,61 @@ export default function Portfolio() {
           </div>
         </>
       )}
+
+      <div className="card overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-navy-700">
+          <h2 className="section-title">
+            <Activity size={16} className="text-brand-blue" aria-hidden="true" /> Ledger
+          </h2>
+          <span className="text-xs text-slate-500">Last {recentLedger.length} of {ledger.length} fills</span>
+        </div>
+        {recentLedger.length === 0 ? (
+          <p className="px-5 py-8 text-sm text-slate-500 text-center">
+            No fills yet. Buys and sells print here with cash after each ticket.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs text-slate-500 border-b border-navy-700 bg-navy-850">
+                  <th className="text-left px-5 py-3 font-medium">Time</th>
+                  <th className="text-left px-3 py-3 font-medium">Side</th>
+                  <th className="text-left px-3 py-3 font-medium">Ticker</th>
+                  <th className="text-right px-3 py-3 font-medium">Shares</th>
+                  <th className="text-right px-3 py-3 font-medium">Price</th>
+                  <th className="text-right px-5 py-3 font-medium">Cash after</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentLedger.map((row) => (
+                  <tr key={row.id} className="text-sm border-b border-navy-700/50">
+                    <td className="px-5 py-2.5 text-slate-400 font-mono text-xs">
+                      {new Date(row.ts).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={clsx(
+                        'badge uppercase',
+                        row.side === 'buy' ? 'bg-brand-green/15 text-brand-green' : 'bg-brand-red/15 text-brand-red',
+                      )}
+                      >
+                        {row.side}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 font-bold text-slate-200">{row.ticker}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-slate-300">{row.shares}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-slate-300">{fmtMoney(row.price)}</td>
+                    <td className="px-5 py-2.5 text-right font-mono text-slate-200">{fmtMoney(row.cashAfter)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <p className="text-xs text-slate-500">
+        Paper broker on simulated prices. Not a live market, not financial advice.
+      </p>
     </div>
   );
 }

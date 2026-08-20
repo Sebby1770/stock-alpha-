@@ -1,6 +1,6 @@
-# AlphaRank — Quant Stock Analysis Platform
+# AlphaRank 3.0 — Quant Stock Analysis Platform
 
-> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, and a paper portfolio — built as an educational demo with **mock data only**.
+> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker**, momentum **Lab**, and **alerts** — built as an educational demo with **mock data only**.
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
 
@@ -32,10 +32,21 @@
 - Watchlist persisted in `localStorage`
 - Compare **2–3 tickers** side-by-side (radar + bars + metrics table)
 
-### Portfolio
-- Paper portfolio with add / remove positions
-- Holdings persisted in `localStorage`; reset to sample book anytime
-- Equity curve, allocation pie, per-holding quant factors
+### Paper broker
+- Cash ledger (default **$100,000**) plus average-up lots; fills at last **mock** price
+- Persisted as `alpharank-portfolio` v3 (`cash`, `holdings`, `ledger`); old holdings arrays are migrated in place
+- Buy and sell tickets, last-20 fill ledger, equity curve, allocation pie
+- Risk strip: max drawdown, Sharpe (from the mock curve), HHI concentration
+- Reset restores sample lots **and** $100,000 cash
+
+### Lab (`/lab`)
+- Momentum factor backtest: trailing lookback rank → top-N equal-weight, rebalanced on a schedule
+- Dual chart vs equal-weight buy-and-hold of the mock universe
+- Simulated histories only — not live markets
+
+### Alerts (`/alerts`)
+- Price above / below and grade-at-least rules, persisted as `alpharank-alerts`
+- Evaluated against current mock quotes and grades; sidebar badge = enabled count
 
 ### UX
 - Navbar search → stock detail; press **`/`** to focus search
@@ -63,7 +74,7 @@
 ```bash
 npm install
 npm run dev      # Vite dev server
-npm test         # Vitest (single run)
+npm test         # Vitest (quant, broker, risk, backtest)
 npm run test:watch
 npm run build    # Production build (uses VITE_BASE)
 npm run preview  # Preview dist/
@@ -98,14 +109,21 @@ src/
 ├── index.css               # Tailwind + light/dark theme hooks
 ├── lib/
 │   ├── quant.js            # Pure scoring, grade, filter, sort, CSV
-│   ├── quant.test.js       # Vitest coverage
+│   ├── quant.test.js
+│   ├── broker.js           # Paper buy/sell, marks, v3 migrate
+│   ├── broker.test.js
+│   ├── risk.js             # Drawdown, vol, Sharpe, HHI, returns
+│   ├── risk.test.js
+│   ├── backtest.js         # Momentum vs equal-weight B&H
+│   ├── backtest.test.js
 │   ├── storage.js          # localStorage helpers
 │   └── format.js           # Display formatters
 ├── context/
 │   ├── ThemeContext.jsx
 │   ├── WatchlistContext.jsx
 │   ├── CompareContext.jsx
-│   └── PortfolioContext.jsx
+│   ├── PortfolioContext.jsx
+│   └── AlertsContext.jsx
 ├── data/
 │   ├── stocks.js           # Mock universe + seeded price history
 │   ├── market.js
@@ -120,7 +138,9 @@ src/
     ├── Watchlist.jsx
     ├── Compare.jsx
     ├── Community.jsx
-    └── Portfolio.jsx
+    ├── Portfolio.jsx
+    ├── Lab.jsx
+    └── Alerts.jsx
 ```
 
 ---

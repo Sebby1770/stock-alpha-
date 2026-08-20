@@ -5,6 +5,24 @@ All notable changes to AlphaRank are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] — 2026-08-20
+
+### Added
+- Paper broker cash ledger (`src/lib/broker.js`): `buy` / `sell` with average-up lots, insufficient-cash/shares rejects, `positionValue`, `unrealizedPnL`
+- Persisted book shape `{ version: 3, cash, holdings, ledger }` in `alpharank-portfolio`; migrates the old holdings array and seeds **$100,000** cash
+- Portfolio UI: cash, equity, total P&L, buy **and** sell tickets, last-20 ledger, Max DD / Sharpe / HHI on the mock equity curve
+- Risk engine (`src/lib/risk.js`): `maxDrawdown`, `volatility` (sample stdev), `sharpe`, `herfindahl`, `equityReturns`
+- Momentum backtester (`src/lib/backtest.js`): equal-weight top-N vs universe buy-and-hold benchmark
+- **Lab** page at `/lab` — lookback, topN, rebalance controls and dual equity chart
+- **Alerts** (`src/context/AlertsContext.jsx`, `/alerts`): price above/below and grade-at-least rules, persisted as `alpharank-alerts`; sidebar badge = enabled count
+- Vitest coverage: `broker.test.js`, `risk.test.js`, `backtest.test.js`
+
+### Changed
+- Version bumped to 3.0.0
+- Holdings-only paper book replaced by a cash + lots broker; reset restores sample lots **and** $100,000 cash
+- Sidebar adds a Tools group (Lab, Alerts); navbar bell links to alerts
+- README documents the paper broker, lab, alerts, and 3.0 scripts
+
 ## [2.0.0] — 2026-08-10
 
 ### Added

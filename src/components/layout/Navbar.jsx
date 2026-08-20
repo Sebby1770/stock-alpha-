@@ -9,6 +9,7 @@ import QuantGrade from '../common/QuantGrade';
 import { useTheme } from '../../context/ThemeContext';
 import { useWatchlist } from '../../context/WatchlistContext';
 import { useCompare } from '../../context/CompareContext';
+import { useAlerts } from '../../context/AlertsContext';
 import clsx from 'clsx';
 
 const fmt = (v, decimals = 2) => (v >= 0 ? '+' : '') + v.toFixed(decimals);
@@ -23,6 +24,7 @@ export default function Navbar() {
   const { toggleTheme, isDark } = useTheme();
   const { count: watchCount } = useWatchlist();
   const { count: compareCount } = useCompare();
+  const { enabledCount: alertCount } = useAlerts();
 
   useEffect(() => {
     if (!query.trim()) {
@@ -240,10 +242,21 @@ export default function Navbar() {
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          <button type="button" className="relative btn-ghost p-2 focus-visible:ring-2 focus-visible:ring-brand-blue/50" aria-label="Notifications">
+          <Link
+            to="/alerts"
+            aria-label={`Alerts, ${alertCount} enabled`}
+            className="relative btn-ghost p-2 focus-visible:ring-2 focus-visible:ring-brand-blue/50"
+            title="Alerts"
+          >
             <Bell size={18} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-brand-blue rounded-full" aria-hidden="true" />
-          </button>
+            {alertCount > 0 ? (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-brand-blue text-[10px] font-bold text-white flex items-center justify-center">
+                {alertCount}
+              </span>
+            ) : (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-blue rounded-full" aria-hidden="true" />
+            )}
+          </Link>
           <div
             className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-xs font-bold text-white"
             aria-hidden="true"

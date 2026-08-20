@@ -8,10 +8,13 @@ import Community from './pages/Community';
 import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import Compare from './pages/Compare';
+import Lab from './pages/Lab';
+import Alerts from './pages/Alerts';
 import { ThemeProvider } from './context/ThemeContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { CompareProvider } from './context/CompareContext';
 import { PortfolioProvider } from './context/PortfolioContext';
+import { AlertsProvider } from './context/AlertsContext';
 
 /** Vite base path, e.g. `/stock-alpha/` — trailing slash stripped for react-router basename */
 const BASENAME = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/';
@@ -22,37 +25,41 @@ export default function App() {
       <WatchlistProvider>
         <CompareProvider>
           <PortfolioProvider>
-            <BrowserRouter basename={BASENAME === '/' ? undefined : BASENAME}>
-              <div className="min-h-screen bg-navy-900 text-slate-100 transition-colors duration-200">
-                <a
-                  href="#main-content"
-                  className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-blue focus:text-white focus:rounded-lg"
-                >
-                  Skip to content
-                </a>
-                <Navbar />
-
-                <div className="flex pt-[88px]">
-                  <Sidebar />
-
-                  <main
-                    id="main-content"
-                    className="flex-1 lg:ml-56 p-4 lg:p-6 max-w-[1600px] mx-auto w-full min-h-[calc(100vh-88px)]"
+            <AlertsProvider>
+              <BrowserRouter basename={BASENAME === '/' ? undefined : BASENAME}>
+                <div className="min-h-screen bg-navy-900 text-slate-100 transition-colors duration-200">
+                  <a
+                    href="#main-content"
+                    className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-blue focus:text-white focus:rounded-lg"
                   >
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/stock/:ticker" element={<StockDetail />} />
-                      <Route path="/screener" element={<Screener />} />
-                      <Route path="/community" element={<Community />} />
-                      <Route path="/portfolio" element={<Portfolio />} />
-                      <Route path="/watchlist" element={<Watchlist />} />
-                      <Route path="/compare" element={<Compare />} />
-                      <Route path="*" element={<Navigate to="/" replace />} />
-                    </Routes>
-                  </main>
+                    Skip to content
+                  </a>
+                  <Navbar />
+
+                  <div className="flex pt-[88px]">
+                    <Sidebar />
+
+                    <main
+                      id="main-content"
+                      className="flex-1 lg:ml-56 p-4 lg:p-6 max-w-[1600px] mx-auto w-full min-h-[calc(100vh-88px)]"
+                    >
+                      <Routes>
+                        <Route path="/" element={<Dashboard />} />
+                        <Route path="/stock/:ticker" element={<StockDetail />} />
+                        <Route path="/screener" element={<Screener />} />
+                        <Route path="/community" element={<Community />} />
+                        <Route path="/portfolio" element={<Portfolio />} />
+                        <Route path="/watchlist" element={<Watchlist />} />
+                        <Route path="/compare" element={<Compare />} />
+                        <Route path="/lab" element={<Lab />} />
+                        <Route path="/alerts" element={<Alerts />} />
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                      </Routes>
+                    </main>
+                  </div>
                 </div>
-              </div>
-            </BrowserRouter>
+              </BrowserRouter>
+            </AlertsProvider>
           </PortfolioProvider>
         </CompareProvider>
       </WatchlistProvider>

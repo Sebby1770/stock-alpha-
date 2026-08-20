@@ -7,12 +7,15 @@ import {
   Star,
   GitCompare,
   TrendingUp,
+  FlaskConical,
+  Bell,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useWatchlist } from '../../context/WatchlistContext';
 import { useCompare } from '../../context/CompareContext';
+import { useAlerts } from '../../context/AlertsContext';
 
-const navItems = [
+const researchItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/screener', icon: SlidersHorizontal, label: 'Screener' },
   { to: '/watchlist', icon: Star, label: 'Watchlist', badge: 'watch' },
@@ -21,13 +24,63 @@ const navItems = [
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
 ];
 
+const toolItems = [
+  { to: '/lab', icon: FlaskConical, label: 'Lab' },
+  { to: '/alerts', icon: Bell, label: 'Alerts', badge: 'alerts' },
+];
+
+function NavGroup({ title, items, badgeFor }) {
+  return (
+    <>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 py-2">
+        {title}
+      </p>
+      {items.map(({ to, icon: Icon, label, end, badge }) => {
+        const n = badgeFor(badge);
+        return (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              clsx(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50',
+                isActive
+                  ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-navy-700',
+              )
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Icon size={17} className={isActive ? 'text-brand-blue' : ''} aria-hidden="true" />
+                {label}
+                {n != null && (
+                  <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-navy-600 text-slate-300">
+                    {n}
+                  </span>
+                )}
+                {n == null && isActive && (
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-blue" aria-hidden="true" />
+                )}
+              </>
+            )}
+          </NavLink>
+        );
+      })}
+    </>
+  );
+}
+
 export default function Sidebar() {
   const { count: watchCount } = useWatchlist();
   const { count: compareCount } = useCompare();
+  const { enabledCount } = useAlerts();
 
   const badgeFor = (key) => {
     if (key === 'watch' && watchCount > 0) return watchCount;
     if (key === 'compare' && compareCount > 0) return compareCount;
+    if (key === 'alerts' && enabledCount > 0) return enabledCount;
     return null;
   };
 
@@ -36,43 +89,10 @@ export default function Sidebar() {
       className="fixed left-0 top-[88px] bottom-0 w-56 flex flex-col border-r border-navy-600 bg-navy-900/80 backdrop-blur-sm z-40 hidden lg:flex"
       aria-label="Main navigation"
     >
-      <nav className="flex flex-col p-3 gap-0.5 flex-1">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 py-2">
-          Research
-        </p>
-        {navItems.map(({ to, icon: Icon, label, end, badge }) => {
-          const n = badgeFor(badge);
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/50',
-                  isActive
-                    ? 'bg-brand-blue/10 text-brand-blue border border-brand-blue/20'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-navy-700',
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon size={17} className={isActive ? 'text-brand-blue' : ''} aria-hidden="true" />
-                  {label}
-                  {n != null && (
-                    <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-navy-600 text-slate-300">
-                      {n}
-                    </span>
-                  )}
-                  {n == null && isActive && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-blue" aria-hidden="true" />
-                  )}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+      <nav className="flex flex-col p-3 gap-0.5 flex-1 overflow-y-auto">
+        <NavGroup title="Research" items={researchItems} badgeFor={badgeFor} />
+        <div className="h-2" />
+        <NavGroup title="Tools" items={toolItems} badgeFor={badgeFor} />
       </nav>
 
       <div className="p-3">
