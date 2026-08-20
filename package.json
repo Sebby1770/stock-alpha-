@@ -1,8 +1,8 @@
 {
   "name": "stock-alpha",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "AlphaRank 3 — quant ratings, paper broker, momentum lab, and alerts (educational mock data)",
+  "description": "AlphaRank 4 — quant ratings, paper broker, factor lab, correlation matrix, and alerts (educational mock data)",
   "type": "module",
   "scripts": {
     "dev": "vite",

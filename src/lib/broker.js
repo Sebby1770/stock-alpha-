@@ -2,7 +2,7 @@
  * Pure paper-broker: cash + lots, no React, no I/O.
  */
 
-export const PORTFOLIO_VERSION = 3;
+export const PORTFOLIO_VERSION = 4;
 export const STARTING_CASH = 100_000;
 
 export const DEFAULT_HOLDINGS = [
@@ -20,6 +20,10 @@ export const DEFAULT_HOLDINGS = [
 
 const SHARE_EPS = 1e-8;
 
+const LEDGER_CSV_COLS = [
+  'id', 'ts', 'side', 'ticker', 'shares', 'price', 'fee', 'realized', 'cashAfter', 'note',
+];
+
 export function round2(n) {
   return Math.round(Number(n) * 100) / 100;
 }
@@ -35,17 +39,37 @@ export function normalizeHoldings(list) {
     }));
 }
 
+export function normalizeStops(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(
+      (s) =>
+        s &&
+        s.ticker &&
+        (s.kind === 'stop_loss' || s.kind === 'take_profit') &&
+        Number(s.price) > 0,
+    )
+    .map((s, i) => ({
+      id: s.id ? String(s.id) : `stop-${String(s.ticker).toUpperCase()}-${s.kind}-${i}`,
+      ticker: String(s.ticker).toUpperCase(),
+      kind: s.kind,
+      price: Number(s.price),
+      enabled: s.enabled !== false,
+    }));
+}
+
 export function defaultBook() {
   return {
     version: PORTFOLIO_VERSION,
     cash: STARTING_CASH,
     holdings: DEFAULT_HOLDINGS.map((h) => ({ ...h })),
     ledger: [],
+    stops: [],
   };
 }
 
 /**
- * Upgrade v2 array-of-holdings (or any unknown blob) to the v3 cash-ledger book.
+ * Upgrade v2 array-of-holdings or a v3 cash-ledger book to the v4 book (adds stops).
  */
 export function migratePortfolio(saved) {
   if (saved == null) return defaultBook();
@@ -56,17 +80,23 @@ export function migratePortfolio(saved) {
       cash: STARTING_CASH,
       holdings: normalizeHoldings(saved),
       ledger: [],
+      stops: [],
     };
   }
 
   if (typeof saved === 'object') {
     const holdings = normalizeHoldings(saved.holdings);
     const cashRaw = Number(saved.cash);
+    const ledger = Array.isArray(saved.ledger) ? saved.ledger : [];
+    const ver = Number(saved.version);
+    // v3 (or unversioned objects) get an empty stops list; v4+ keeps saved stops
+    const stops = ver >= 4 ? normalizeStops(saved.stops) : [];
     return {
       version: PORTFOLIO_VERSION,
       cash: Number.isFinite(cashRaw) ? cashRaw : STARTING_CASH,
       holdings,
-      ledger: Array.isArray(saved.ledger) ? saved.ledger : [],
+      ledger,
+      stops,
     };
   }
 
@@ -121,7 +151,7 @@ export function buy(state, order) {
     ok: true,
     cash: nextCash,
     holdings: nextHoldings,
-    fill: { side: 'buy', ticker, shares, price, fee, cashAfter: nextCash },
+    fill: { side: 'buy', ticker, shares, price, fee, cashAfter: nextCash, realized: 0 },
   };
 }
 
@@ -148,11 +178,13 @@ export function sell(state, order) {
       ? holdings.filter((h) => h.ticker !== ticker)
       : holdings.map((h) => (h.ticker === ticker ? { ...h, shares: remaining } : h));
 
+  const realized = round2((price - existing.entryPrice) * shares - fee);
+
   return {
     ok: true,
     cash: nextCash,
     holdings: nextHoldings,
-    fill: { side: 'sell', ticker, shares, price, fee, cashAfter: nextCash },
+    fill: { side: 'sell', ticker, shares, price, fee, cashAfter: nextCash, realized },
   };
 }
 
@@ -185,4 +217,41 @@ export function unrealizedPnL(holdings, priceOf) {
     if (!Number.isFinite(px) || !Number.isFinite(sh) || !Number.isFinite(entry)) return sum;
     return sum + (px - entry) * sh;
   }, 0);
+}
+
+/**
+ * Sum of fill.realized across the ledger (closed-lot P&L).
+ */
+export function realizedPnL(ledger) {
+  if (!Array.isArray(ledger)) return 0;
+  return ledger.reduce((sum, fill) => {
+    const r = Number(fill?.realized);
+    return sum + (Number.isFinite(r) ? r : 0);
+  }, 0);
+}
+
+function csvEscape(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+/**
+ * Export the fill ledger as CSV (header + one row per fill).
+ */
+export function ledgerToCsv(ledger) {
+  const header = LEDGER_CSV_COLS.join(',');
+  const rows = (Array.isArray(ledger) ? ledger : []).map((fill) =>
+    LEDGER_CSV_COLS.map((col) => {
+      if (col === 'ts' && fill?.ts != null) {
+        const d = new Date(fill.ts);
+        if (!Number.isNaN(d.getTime())) return csvEscape(d.toISOString());
+      }
+      return csvEscape(fill?.[col]);
+    }).join(','),
+  );
+  return [header, ...rows].join('\n');
 }

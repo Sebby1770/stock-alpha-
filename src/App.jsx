@@ -10,6 +10,8 @@ import Watchlist from './pages/Watchlist';
 import Compare from './pages/Compare';
 import Lab from './pages/Lab';
 import Alerts from './pages/Alerts';
+import Matrix from './pages/Matrix';
+import CommandPalette from './components/layout/CommandPalette';
 import { ThemeProvider } from './context/ThemeContext';
 import { WatchlistProvider } from './context/WatchlistContext';
 import { CompareProvider } from './context/CompareContext';
@@ -35,6 +37,7 @@ export default function App() {
                     Skip to content
                   </a>
                   <Navbar />
+                  <CommandPalette />
 
                   <div className="flex pt-[88px]">
                     <Sidebar />
@@ -53,6 +56,7 @@ export default function App() {
                         <Route path="/compare" element={<Compare />} />
                         <Route path="/lab" element={<Lab />} />
                         <Route path="/alerts" element={<Alerts />} />
+                        <Route path="/matrix" element={<Matrix />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                       </Routes>
                     </main>

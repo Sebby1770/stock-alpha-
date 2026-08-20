@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { backtestMomentum, alignPriceHistories } from './backtest.js';
+import { backtestMomentum, backtestFactor, alignPriceHistories } from './backtest.js';
 
 function stock(ticker, prices, startDay = 1) {
   return {
@@ -70,5 +70,35 @@ describe('backtestMomentum', () => {
     expect(result.equity).toEqual([]);
     expect(result.stats.strategyReturn).toBe(0);
     expect(Number.isFinite(result.stats.maxDrawdown)).toBe(true);
+  });
+});
+
+describe('backtestFactor', () => {
+  const n = 30;
+  const cheap = stock('VAL', Array.from({ length: n }, (_, i) => 50 + i * 0.2));
+  const rich = stock('GRW', Array.from({ length: n }, (_, i) => 50 + i * 0.1));
+  cheap.factors = { value: 5, growth: 1, momentum: 1, profitability: 1, revisions: 1 };
+  rich.factors = { value: 1, growth: 5, momentum: 1, profitability: 1, revisions: 1 };
+
+  it('with value returns finite stats and dates', () => {
+    const result = backtestFactor([cheap, rich], {
+      factor: 'value',
+      topN: 1,
+      lookback: 5,
+      rebalance: 5,
+      startCash: 100000,
+    });
+    expect(result.equity.length).toBeGreaterThan(0);
+    expect(result.equity[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    for (const pt of result.equity) {
+      expect(typeof pt.date).toBe('string');
+      expect(Number.isFinite(pt.strategy)).toBe(true);
+      expect(Number.isFinite(pt.benchmark)).toBe(true);
+    }
+    const { strategyReturn, benchmarkReturn, maxDrawdown, excessReturn } = result.stats;
+    expect(Number.isFinite(strategyReturn)).toBe(true);
+    expect(Number.isFinite(benchmarkReturn)).toBe(true);
+    expect(Number.isFinite(maxDrawdown)).toBe(true);
+    expect(Number.isFinite(excessReturn)).toBe(true);
   });
 });

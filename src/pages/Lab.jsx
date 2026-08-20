@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FlaskConical, TrendingUp, Timer, Layers } from 'lucide-react';
 import { stocks } from '../data/stocks';
-import { backtestMomentum } from '../lib/backtest';
+import { backtestFactor } from '../lib/backtest';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -11,6 +11,14 @@ import {
 const LOOKBACKS = [5, 10, 21, 42, 63];
 const TOP_N = [3, 5, 8, 10, 15];
 const REBALANCE = [5, 10, 21, 42];
+const STRATEGIES = [
+  { id: 'momentum', label: 'Momentum lookback' },
+  { id: 'value', label: 'Value' },
+  { id: 'growth', label: 'Growth' },
+  { id: 'profitability', label: 'Profitability' },
+  { id: 'revisions', label: 'Revisions' },
+  { id: 'composite', label: 'Composite' },
+];
 
 const fmtPct = (n) => {
   if (!Number.isFinite(n)) return '—';
@@ -24,14 +32,16 @@ const fmtBig = (n) => {
 };
 
 export default function Lab() {
+  const [factor, setFactor] = useState('momentum');
   const [lookback, setLookback] = useState(21);
   const [topN, setTopN] = useState(8);
   const [rebalance, setRebalance] = useState(21);
   const startCash = 100000;
+  const strategyLabel = STRATEGIES.find((s) => s.id === factor)?.label ?? 'Momentum lookback';
 
   const result = useMemo(
-    () => backtestMomentum(stocks, { topN, lookback, rebalance, startCash }),
-    [topN, lookback, rebalance, startCash],
+    () => backtestFactor(stocks, { factor, topN, lookback, rebalance, startCash }),
+    [factor, topN, lookback, rebalance, startCash],
   );
 
   const { equity, stats } = result;
@@ -52,7 +62,7 @@ export default function Lab() {
           Lab
         </h1>
         <p className="text-slate-400 text-sm mt-0.5">
-          Momentum factor backtest on simulated price histories · not live markets
+          Factor backtest on simulated price histories · not live markets
         </p>
       </div>
 
@@ -60,10 +70,25 @@ export default function Lab() {
         <h2 className="section-title mb-4">
           <Layers size={16} className="text-brand-purple" aria-hidden="true" /> Factor proxy
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label htmlFor="lab-factor" className="block text-xs text-slate-400 mb-1.5">
+              Strategy
+            </label>
+            <select
+              id="lab-factor"
+              className="select"
+              value={factor}
+              onChange={(e) => setFactor(e.target.value)}
+            >
+              {STRATEGIES.map((s) => (
+                <option key={s.id} value={s.id}>{s.label}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label htmlFor="lab-lookback" className="block text-xs text-slate-400 mb-1.5">
-              Momentum lookback (days)
+              {factor === 'momentum' ? 'Momentum lookback (days)' : 'Start window (days)'}
             </label>
             <select
               id="lab-lookback"
@@ -108,8 +133,10 @@ export default function Lab() {
           </div>
         </div>
         <p className="text-xs text-slate-500 mt-3">
-          Rank the universe by trailing lookback return, hold the top N equal-weight until the next rebalance.
-          Benchmark is equal-weight buy-and-hold of the full mock universe. Start cash {fmtBig(startCash)}.
+          {factor === 'momentum'
+            ? 'Rank the universe by trailing lookback return, hold the top N equal-weight until the next rebalance.'
+            : `Rank the universe by static ${strategyLabel.toLowerCase()} scores at each rebalance (mock factor snapshots, still vs B&H).`}
+          {' '}Benchmark is equal-weight buy-and-hold of the full mock universe. Start cash {fmtBig(startCash)}.
         </p>
       </div>
 
@@ -163,7 +190,7 @@ export default function Lab() {
                 <Line
                   type="monotone"
                   dataKey="strategy"
-                  name="Momentum"
+                  name={strategyLabel}
                   stroke="#10b981"
                   strokeWidth={2}
                   dot={false}
@@ -186,7 +213,7 @@ export default function Lab() {
                   <Timer size={12} aria-hidden="true" />
                   {equity[0].date} → {last.date} · {equity.length} sessions
                 </span>
-                <span>Momentum {fmtBig(last.strategy)}</span>
+                <span>{strategyLabel} {fmtBig(last.strategy)}</span>
                 <span>Benchmark {fmtBig(last.benchmark)}</span>
               </div>
             )}

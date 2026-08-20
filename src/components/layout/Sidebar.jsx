@@ -9,6 +9,7 @@ import {
   TrendingUp,
   FlaskConical,
   Bell,
+  Grid3x3,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useWatchlist } from '../../context/WatchlistContext';
@@ -27,6 +28,7 @@ const researchItems = [
 const toolItems = [
   { to: '/lab', icon: FlaskConical, label: 'Lab' },
   { to: '/alerts', icon: Bell, label: 'Alerts', badge: 'alerts' },
+  { to: '/matrix', icon: Grid3x3, label: 'Matrix' },
 ];
 
 function NavGroup({ title, items, badgeFor }) {

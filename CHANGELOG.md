@@ -5,6 +5,24 @@ All notable changes to AlphaRank are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [4.0.0] — 2026-08-20
+
+### Added
+- Realized P&L on paper sells: `fill.realized = (price - lot.entryPrice) * shares - fee` (buys record `0`); `realizedPnL(ledger)` and `ledgerToCsv(ledger)` in `src/lib/broker.js`
+- Portfolio **stops** (`src/lib/stops.js`): stop-loss / take-profit, `evaluateStops`; Check stops (and a one-shot check on mount) sells the full lot at last mock price with ledger note `stop`
+- `backtestFactor` — rank by momentum lookback **or** static value / growth / profitability / revisions / composite scores vs equal-weight B&H; Lab strategy dropdown
+- Correlation **Matrix** at `/matrix` (`src/lib/correlation.js`): Pearson pairwise on aligned daily returns, heatmap table
+- Factor **attribution** (`src/lib/attribution.js`): value-weighted holdings vs equal-weight universe; card on Portfolio
+- Watchlist **notes** persisted as `alpharank-notes` (`{ TICKER: string }`); textarea per row
+- **Command palette** (`⌘K` / `Ctrl+K`) — filter routes (Dashboard, Screener, Lab, Alerts, Matrix, Portfolio, Watchlist, Compare) and tickers; Enter navigates, Esc closes
+- Vitest: `stops.test.js`, `correlation.test.js`, `attribution.test.js`, plus realized/CSV and `backtestFactor` coverage
+
+### Changed
+- Version bumped to 4.0.0
+- Paper book shape `{ version: 4, cash, holdings, ledger, stops }`; `migratePortfolio` upgrades v3 objects with `stops: []`
+- Portfolio UI shows realized next to unrealized and **Export ledger CSV**
+- Sidebar Tools group adds **Matrix**
+
 ## [3.0.0] — 2026-08-20
 
 ### Added

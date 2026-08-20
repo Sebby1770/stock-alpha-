@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buy, sell, positionValue, unrealizedPnL,
-  migratePortfolio, STARTING_CASH, DEFAULT_HOLDINGS,
+  buy, sell, positionValue, unrealizedPnL, realizedPnL, ledgerToCsv,
+  migratePortfolio, STARTING_CASH, DEFAULT_HOLDINGS, PORTFOLIO_VERSION,
 } from './broker.js';
 
 const empty = { cash: 10_000, holdings: [] };
@@ -28,6 +28,7 @@ describe('buy', () => {
     expect(r.holdings).toEqual([{ ticker: 'AAA', shares: 10, entryPrice: 100 }]);
     expect(r.fill.side).toBe('buy');
     expect(r.fill.cashAfter).toBe(0);
+    expect(r.fill.realized).toBe(0);
   });
 
   it('averages up an existing lot', () => {
@@ -39,6 +40,7 @@ describe('buy', () => {
     expect(b.holdings[0].shares).toBe(20);
     expect(b.holdings[0].entryPrice).toBe(110);
     expect(b.cash).toBe(10_000 - 1000 - 1200);
+    expect(b.fill.realized).toBe(0);
   });
 });
 
@@ -71,6 +73,24 @@ describe('sell', () => {
     expect(r.holdings[0].shares).toBe(6);
     expect(r.holdings[0].entryPrice).toBe(50);
   });
+
+  it('records realized P&L on a winning sell', () => {
+    const a = buy(empty, { ticker: 'AAA', shares: 10, price: 100 });
+    const r = sell({ cash: a.cash, holdings: a.holdings }, { ticker: 'AAA', shares: 10, price: 110 });
+    expect(r.ok).toBe(true);
+    // (110 - 100) * 10 - 0 fee
+    expect(r.fill.realized).toBe(100);
+    expect(realizedPnL([a.fill, r.fill])).toBe(100);
+  });
+
+  it('subtracts fee from realized', () => {
+    const a = buy(empty, { ticker: 'AAA', shares: 10, price: 100 });
+    const r = sell(
+      { cash: a.cash, holdings: a.holdings },
+      { ticker: 'AAA', shares: 10, price: 110, fee: 5 },
+    );
+    expect(r.fill.realized).toBe(95);
+  });
 });
 
 describe('marks', () => {
@@ -93,19 +113,75 @@ describe('marks', () => {
   });
 });
 
+describe('ledgerToCsv', () => {
+  it('has a header', () => {
+    const csv = ledgerToCsv([]);
+    const header = csv.split('\n')[0];
+    expect(header).toMatch(/ticker/i);
+    expect(header).toMatch(/side/i);
+    expect(header).toMatch(/realized/i);
+    expect(header.split(',')[0]).toBe('id');
+  });
+
+  it('emits a row per fill', () => {
+    const csv = ledgerToCsv([
+      { id: 'f1', ts: Date.UTC(2026, 0, 1), side: 'sell', ticker: 'AAA', shares: 2, price: 10, fee: 0, realized: 4, cashAfter: 100 },
+    ]);
+    const lines = csv.split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContain('AAA');
+    expect(lines[1]).toContain('sell');
+    expect(lines[1]).toContain('4');
+  });
+});
+
 describe('migratePortfolio', () => {
   it('wraps a v2 holdings array with $100,000 cash', () => {
     const old = [{ ticker: 'nvda', shares: 2, entryPrice: 100 }];
     const book = migratePortfolio(old);
-    expect(book.version).toBe(3);
+    expect(book.version).toBe(PORTFOLIO_VERSION);
+    expect(book.version).toBe(4);
     expect(book.cash).toBe(STARTING_CASH);
     expect(book.holdings).toEqual([{ ticker: 'NVDA', shares: 2, entryPrice: 100 }]);
     expect(book.ledger).toEqual([]);
+    expect(book.stops).toEqual([]);
   });
 
   it('seeds the default book when storage is empty', () => {
     const book = migratePortfolio(null);
     expect(book.cash).toBe(STARTING_CASH);
     expect(book.holdings).toHaveLength(DEFAULT_HOLDINGS.length);
+    expect(book.stops).toEqual([]);
+    expect(book.version).toBe(4);
+  });
+
+  it('upgrades a v3 book by adding stops and bumping version', () => {
+    const v3 = {
+      version: 3,
+      cash: 5000,
+      holdings: [{ ticker: 'AAA', shares: 1, entryPrice: 10 }],
+      ledger: [{ side: 'buy', ticker: 'AAA' }],
+    };
+    const book = migratePortfolio(v3);
+    expect(book.version).toBe(4);
+    expect(book.stops).toEqual([]);
+    expect(book.cash).toBe(5000);
+    expect(book.ledger).toHaveLength(1);
+    expect(book.holdings).toEqual([{ ticker: 'AAA', shares: 1, entryPrice: 10 }]);
+  });
+
+  it('keeps v4 stops', () => {
+    const v4 = {
+      version: 4,
+      cash: 1,
+      holdings: [],
+      ledger: [],
+      stops: [{ id: 's1', ticker: 'aaa', kind: 'stop_loss', price: 10, enabled: true }],
+    };
+    const book = migratePortfolio(v4);
+    expect(book.version).toBe(4);
+    expect(book.stops).toHaveLength(1);
+    expect(book.stops[0].ticker).toBe('AAA');
+    expect(book.stops[0].kind).toBe('stop_loss');
   });
 });

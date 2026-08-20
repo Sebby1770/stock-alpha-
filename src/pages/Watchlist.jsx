@@ -13,7 +13,7 @@ import clsx from 'clsx';
 
 export default function Watchlist() {
   const navigate = useNavigate();
-  const { tickers, clear, count } = useWatchlist();
+  const { tickers, clear, count, note, setNote } = useWatchlist();
   const { toggle: toggleCompare, isSelected, canAdd } = useCompare();
 
   const watched = useMemo(
@@ -88,6 +88,7 @@ export default function Watchlist() {
                     <th className="text-center px-3 py-3 font-medium">Grade</th>
                     <th className="text-right px-3 py-3 font-medium">Score</th>
                     <th className="text-center px-3 py-3 font-medium hidden md:table-cell">30D</th>
+                    <th className="text-left px-3 py-3 font-medium">Notes</th>
                     <th className="text-right px-5 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -126,6 +127,16 @@ export default function Watchlist() {
                           <div className="w-16 mx-auto">
                             <MiniChart data={s.priceHistory} positive={pos} height={28} />
                           </div>
+                        </td>
+                        <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                          <textarea
+                            className="input min-h-[2.5rem] h-12 py-1.5 text-xs resize-y"
+                            rows={2}
+                            placeholder="Note…"
+                            aria-label={`Note for ${s.ticker}`}
+                            value={note(s.ticker)}
+                            onChange={(e) => setNote(s.ticker, e.target.value)}
+                          />
                         </td>
                         <td className="px-5 py-3 text-right">
                           <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

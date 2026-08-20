@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Briefcase, TrendingUp, PieChart, DollarSign, Trash2, RotateCcw,
   ArrowDownRight, ArrowUpRight, Wallet, Activity, Shield,
+  Download, Flag, Layers,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { usePortfolio } from '../context/PortfolioContext';
@@ -12,6 +13,9 @@ import { FactorBar } from '../components/common/FactorBar';
 import EmptyState from '../components/common/EmptyState';
 import WatchlistButton from '../components/common/WatchlistButton';
 import { maxDrawdown, sharpe, herfindahl, equityReturns } from '../lib/risk';
+import { ledgerToCsv } from '../lib/broker';
+import { factorAttribution } from '../lib/attribution';
+import { FACTOR_KEYS, FACTOR_META } from '../lib/quant';
 import { fmtMoney } from '../lib/format';
 import clsx from 'clsx';
 import {
@@ -46,13 +50,23 @@ const buildEquityCurve = (holdings, cash) => {
 export default function Portfolio() {
   const navigate = useNavigate();
   const {
-    enriched, cash, equity, pnl, marketValue, ledger,
+    enriched, cash, equity, pnl, realized, marketValue, ledger, stops,
     buyStock, sellStock, removePosition, resetToDefault,
+    addStop, removeStop, executeStopSignals,
   } = usePortfolio();
   const [buyForm, setBuyForm] = useState({ ticker: '', shares: '' });
   const [sellForm, setSellForm] = useState({ ticker: '', shares: '' });
   const [buyError, setBuyError] = useState('');
   const [sellError, setSellError] = useState('');
+  const [stopDrafts, setStopDrafts] = useState({});
+  const [stopMsg, setStopMsg] = useState('');
+  const didCheckStops = useRef(false);
+
+  useEffect(() => {
+    if (didCheckStops.current) return;
+    didCheckStops.current = true;
+    executeStopSignals();
+  }, [executeStopSignals]);
 
   const holdings = enriched;
   const totalCost = holdings.reduce((s, h) => s + h.costBasis, 0);
@@ -88,6 +102,48 @@ export default function Portfolio() {
     : 0;
 
   const recentLedger = [...ledger].reverse().slice(0, 20);
+
+  const attr = useMemo(
+    () => factorAttribution(holdings, stocks, (t) => {
+      const row = holdings.find((h) => h.ticker === t);
+      return row?.stock?.price ?? 0;
+    }),
+    [holdings],
+  );
+
+  const exportLedger = () => {
+    const csv = ledgerToCsv(ledger);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alpharank-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const onCheckStops = () => {
+    const hits = executeStopSignals();
+    setStopMsg(hits.length ? `Executed ${hits.length} stop${hits.length === 1 ? '' : 's'}` : 'No stops triggered');
+  };
+
+  const setDraft = (ticker, field, value) => {
+    setStopDrafts((prev) => ({
+      ...prev,
+      [ticker]: { ...(prev[ticker] || {}), [field]: value },
+    }));
+  };
+
+  const submitStops = (ticker) => {
+    const draft = stopDrafts[ticker] || {};
+    const sl = Number(draft.sl);
+    const tp = Number(draft.tp);
+    if (Number.isFinite(sl) && sl > 0) addStop({ ticker, kind: 'stop_loss', price: sl });
+    if (Number.isFinite(tp) && tp > 0) addStop({ ticker, kind: 'take_profit', price: tp });
+  };
+
+  const stopFor = (ticker, kind) =>
+    (stops || []).find((s) => s.ticker === ticker && s.kind === kind);
 
   const onBuyTicker = (ticker) => setBuyForm((f) => ({ ...f, ticker }));
   const onSellTicker = (ticker) => {
@@ -164,11 +220,22 @@ export default function Portfolio() {
           </div>
         </div>
         <div className="card p-5">
-          <div className="text-xs text-slate-400 mb-1">Total P&amp;L</div>
-          <div className={clsx('text-2xl font-extrabold font-mono', pnl >= 0 ? 'text-brand-green' : 'text-brand-red')}>
-            {pnl >= 0 ? '+' : ''}{fmtBig(pnl)}
+          <div className="text-xs text-slate-400 mb-1">P&amp;L</div>
+          <div className="flex items-end gap-5 flex-wrap">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Unrealized</div>
+              <div className={clsx('text-2xl font-extrabold font-mono', pnl >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+                {pnl >= 0 ? '+' : ''}{fmtBig(pnl)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500">Realized</div>
+              <div className={clsx('text-2xl font-extrabold font-mono', realized >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+                {realized >= 0 ? '+' : ''}{fmtBig(realized)}
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-slate-500 mt-1">Unrealized vs cost {fmtBig(totalCost)}</div>
+          <div className="text-xs text-slate-500 mt-1">Open vs cost {fmtBig(totalCost)} · closed from ledger</div>
         </div>
         <div className="card p-5">
           <div className="text-xs text-slate-400 mb-1">Today&apos;s P&amp;L</div>
@@ -213,6 +280,44 @@ export default function Portfolio() {
           <div className="text-xs text-slate-500">Portfolio quality score</div>
         </div>
       </div>
+
+      {holdings.length > 0 && (
+        <div className="card p-5">
+          <h2 className="section-title mb-3">
+            <Layers size={16} className="text-brand-purple" aria-hidden="true" /> Factor attribution
+          </h2>
+          <p className="text-xs text-slate-500 mb-3">
+            Value-weighted holdings vs equal-weight mock universe
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-slate-500 border-b border-navy-700">
+                  <th className="text-left py-2 font-medium">Factor</th>
+                  <th className="text-right py-2 font-medium">Portfolio</th>
+                  <th className="text-right py-2 font-medium">Universe</th>
+                  <th className="text-right py-2 font-medium">Delta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FACTOR_KEYS.map((k) => {
+                  const d = attr.delta[k];
+                  return (
+                    <tr key={k} className="border-b border-navy-700/50">
+                      <td className="py-2 text-slate-300">{FACTOR_META[k].label}</td>
+                      <td className="py-2 text-right font-mono text-slate-200">{attr.portfolio[k].toFixed(2)}</td>
+                      <td className="py-2 text-right font-mono text-slate-400">{attr.universe[k].toFixed(2)}</td>
+                      <td className={clsx('py-2 text-right font-mono font-semibold', d >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+                        {d >= 0 ? '+' : ''}{d.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <form onSubmit={submitBuy} className="card p-5">
@@ -491,12 +596,126 @@ export default function Portfolio() {
         </>
       )}
 
+      {holdings.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-navy-700 gap-3 flex-wrap">
+            <h2 className="section-title">
+              <Flag size={16} className="text-brand-yellow" aria-hidden="true" /> Stops
+            </h2>
+            <div className="flex items-center gap-2">
+              {stopMsg && <span className="text-xs text-slate-400">{stopMsg}</span>}
+              <button type="button" className="btn-primary" onClick={onCheckStops}>
+                Check stops
+              </button>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="text-xs text-slate-500 border-b border-navy-700 bg-navy-850">
+                  <th className="text-left px-5 py-3 font-medium">Ticker</th>
+                  <th className="text-right px-3 py-3 font-medium">Last</th>
+                  <th className="text-right px-3 py-3 font-medium">Stop-loss</th>
+                  <th className="text-right px-3 py-3 font-medium">Take-profit</th>
+                  <th className="px-5 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {[...holdings].sort((a, b) => b.currentVal - a.currentVal).map((h) => {
+                  const sl = stopFor(h.ticker, 'stop_loss');
+                  const tp = stopFor(h.ticker, 'take_profit');
+                  return (
+                    <tr key={h.ticker} className="text-sm border-b border-navy-700/50">
+                      <td className="px-5 py-3 font-bold text-slate-200">{h.ticker}</td>
+                      <td className="px-3 py-3 text-right font-mono text-slate-300">{fmtMoney(h.stock.price)}</td>
+                      <td className="px-3 py-3">
+                        <input
+                          className="input text-right font-mono"
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          placeholder={sl ? String(sl.price) : 'SL'}
+                          aria-label={`${h.ticker} stop-loss`}
+                          value={stopDrafts[h.ticker]?.sl ?? (sl ? String(sl.price) : '')}
+                          onChange={(e) => setDraft(h.ticker, 'sl', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-3 py-3">
+                        <input
+                          className="input text-right font-mono"
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          placeholder={tp ? String(tp.price) : 'TP'}
+                          aria-label={`${h.ticker} take-profit`}
+                          value={stopDrafts[h.ticker]?.tp ?? (tp ? String(tp.price) : '')}
+                          onChange={(e) => setDraft(h.ticker, 'tp', e.target.value)}
+                        />
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => submitStops(h.ticker)}
+                        >
+                          Set
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {stops.length > 0 && (
+            <div className="p-5 border-t border-navy-700 space-y-2">
+              <p className="text-xs text-slate-500">{stops.length} saved stop{stops.length === 1 ? '' : 's'}</p>
+              <ul className="space-y-1.5">
+                {stops.map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 text-sm">
+                    <span className={clsx(
+                      'badge uppercase',
+                      s.kind === 'stop_loss' ? 'bg-brand-red/15 text-brand-red' : 'bg-brand-green/15 text-brand-green',
+                    )}
+                    >
+                      {s.kind === 'stop_loss' ? 'SL' : 'TP'}
+                    </span>
+                    <span className="font-bold text-slate-200">{s.ticker}</span>
+                    <span className="font-mono text-slate-400">{fmtMoney(s.price)}</span>
+                    {!s.enabled && <span className="text-xs text-slate-500">off</span>}
+                    <button
+                      type="button"
+                      className="ml-auto p-1.5 rounded-md text-slate-500 hover:text-brand-red hover:bg-brand-red/10"
+                      aria-label={`Remove ${s.ticker} ${s.kind}`}
+                      onClick={() => removeStop(s.id)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card overflow-hidden">
-        <div className="flex items-center justify-between p-5 border-b border-navy-700">
+        <div className="flex items-center justify-between p-5 border-b border-navy-700 gap-3 flex-wrap">
           <h2 className="section-title">
             <Activity size={16} className="text-brand-blue" aria-hidden="true" /> Ledger
           </h2>
-          <span className="text-xs text-slate-500">Last {recentLedger.length} of {ledger.length} fills</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Last {recentLedger.length} of {ledger.length} fills</span>
+            <button
+              type="button"
+              className="btn-secondary flex items-center gap-2 disabled:opacity-40"
+              onClick={exportLedger}
+              disabled={ledger.length === 0}
+              aria-label="Export ledger as CSV"
+            >
+              <Download size={14} /> Export ledger CSV
+            </button>
+          </div>
         </div>
         {recentLedger.length === 0 ? (
           <p className="px-5 py-8 text-sm text-slate-500 text-center">
@@ -512,6 +731,8 @@ export default function Portfolio() {
                   <th className="text-left px-3 py-3 font-medium">Ticker</th>
                   <th className="text-right px-3 py-3 font-medium">Shares</th>
                   <th className="text-right px-3 py-3 font-medium">Price</th>
+                  <th className="text-right px-3 py-3 font-medium">Realized</th>
+                  <th className="text-left px-3 py-3 font-medium">Note</th>
                   <th className="text-right px-5 py-3 font-medium">Cash after</th>
                 </tr>
               </thead>
@@ -533,6 +754,14 @@ export default function Portfolio() {
                     <td className="px-3 py-2.5 font-bold text-slate-200">{row.ticker}</td>
                     <td className="px-3 py-2.5 text-right font-mono text-slate-300">{row.shares}</td>
                     <td className="px-3 py-2.5 text-right font-mono text-slate-300">{fmtMoney(row.price)}</td>
+                    <td className={clsx(
+                      'px-3 py-2.5 text-right font-mono',
+                      Number(row.realized) > 0 ? 'text-brand-green' : Number(row.realized) < 0 ? 'text-brand-red' : 'text-slate-400',
+                    )}
+                    >
+                      {row.realized == null ? '—' : fmtMoney(row.realized)}
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500">{row.note || '—'}</td>
                     <td className="px-5 py-2.5 text-right font-mono text-slate-200">{fmtMoney(row.cashAfter)}</td>
                   </tr>
                 ))}

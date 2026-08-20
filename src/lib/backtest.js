@@ -1,9 +1,10 @@
 /**
- * Momentum factor backtester over mock price histories.
+ * Factor backtester over mock price histories.
  * Educational / simulated — not live markets.
  */
 
 import { maxDrawdown } from './risk.js';
+import { calcQuantScore } from './quant.js';
 
 function finite(n, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
@@ -66,14 +67,26 @@ const EMPTY_STATS = {
   excessReturn: 0,
 };
 
+function staticScore(stock, factor) {
+  if (factor === 'composite') {
+    const s = calcQuantScore(stock?.factors);
+    return Number.isFinite(s) ? s : -Infinity;
+  }
+  const v = Number(stock?.factors?.[factor]);
+  return Number.isFinite(v) ? v : -Infinity;
+}
+
 /**
- * Equal-weight momentum: every `rebalance` days, rank by trailing `lookback`
- * return and hold the top N names until the next rebalance.
- * Benchmark is equal-weight buy-and-hold of the full universe.
+ * Equal-weight factor backtest vs universe buy-and-hold.
+ *
+ * `momentum` ranks by trailing `lookback` return at each rebalance.
+ * Other factors (`value`, `growth`, `profitability`, `revisions`, `composite`)
+ * rank by static mock scores (still marked to the same price path vs B&H).
  *
  * @returns {{ equity: Array<{date: string, strategy: number, benchmark: number}>, stats: object }}
  */
-export function backtestMomentum(stocks, {
+export function backtestFactor(stocks, {
+  factor = 'momentum',
   topN = 8,
   lookback = 21,
   rebalance = 21,
@@ -83,8 +96,10 @@ export function backtestMomentum(stocks, {
   const rb = Math.max(1, Math.floor(Number(rebalance) || 21));
   const cash0 = Number(startCash);
   const start = Number.isFinite(cash0) && cash0 > 0 ? cash0 : 100000;
+  const useMom = factor === 'momentum';
 
-  const { dates, series } = alignPriceHistories(stocks);
+  const list = Array.isArray(stocks) ? stocks : [];
+  const { dates, series } = alignPriceHistories(list);
   const nNames = series.length;
   const T = dates.length;
 
@@ -95,6 +110,7 @@ export function backtestMomentum(stocks, {
   const holdN = Math.max(1, Math.min(Math.floor(Number(topN) || 8), nNames));
   const startIdx = lb;
   const benchStart = series.map((s) => s[startIdx]);
+  const frozen = useMom ? null : list.map((s) => staticScore(s, factor));
 
   let held = [];
   let stratVal = start;
@@ -103,9 +119,12 @@ export function backtestMomentum(stocks, {
   for (let t = startIdx; t < T; t += 1) {
     if ((t - startIdx) % rb === 0) {
       const ranked = series.map((s, i) => {
-        const prev = s[t - lb];
-        const ret = prev > 0 ? s[t] / prev - 1 : -Infinity;
-        return { i, ret };
+        if (useMom) {
+          const prev = s[t - lb];
+          const ret = prev > 0 ? s[t] / prev - 1 : -Infinity;
+          return { i, ret };
+        }
+        return { i, ret: frozen[i] };
       });
       ranked.sort((a, b) => b.ret - a.ret);
       held = ranked.slice(0, holdN).map((x) => x.i);
@@ -151,4 +170,18 @@ export function backtestMomentum(stocks, {
       excessReturn: finite(strategyReturn - benchmarkReturn),
     },
   };
+}
+
+/**
+ * Equal-weight momentum: every `rebalance` days, rank by trailing `lookback`
+ * return and hold the top N names until the next rebalance.
+ * Benchmark is equal-weight buy-and-hold of the full universe.
+ */
+export function backtestMomentum(stocks, {
+  topN = 8,
+  lookback = 21,
+  rebalance = 21,
+  startCash = 100000,
+} = {}) {
+  return backtestFactor(stocks, { factor: 'momentum', topN, lookback, rebalance, startCash });
 }

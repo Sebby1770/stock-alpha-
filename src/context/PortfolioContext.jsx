@@ -8,8 +8,10 @@ import {
   defaultBook,
   positionValue,
   unrealizedPnL,
+  realizedPnL,
   PORTFOLIO_VERSION,
 } from '../lib/broker';
+import { evaluateStops } from '../lib/stops';
 
 const STORAGE_KEY = 'alpharank-portfolio';
 
@@ -22,7 +24,7 @@ function makeId() {
   return `fill-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function appendFill(prev, outcome, note) {
+function fillFromOutcome(outcome, note) {
   const fill = {
     id: makeId(),
     ts: Date.now(),
@@ -30,14 +32,21 @@ function appendFill(prev, outcome, note) {
     ticker: outcome.fill.ticker,
     shares: outcome.fill.shares,
     price: outcome.fill.price,
+    fee: outcome.fill.fee ?? 0,
+    realized: Number.isFinite(Number(outcome.fill.realized)) ? Number(outcome.fill.realized) : 0,
     cashAfter: outcome.cash,
   };
   if (note) fill.note = note;
+  return fill;
+}
+
+function appendFill(prev, outcome, note) {
   return {
     version: PORTFOLIO_VERSION,
     cash: outcome.cash,
     holdings: outcome.holdings,
-    ledger: [...(prev.ledger || []), fill],
+    ledger: [...(prev.ledger || []), fillFromOutcome(outcome, note)],
+    stops: Array.isArray(prev.stops) ? prev.stops : [],
   };
 }
 
@@ -104,6 +113,86 @@ export function PortfolioProvider({ children }) {
     return outcome;
   }, []);
 
+  const addStop = useCallback((input) => {
+    const ticker = String(input?.ticker || '').toUpperCase();
+    const kind = input?.kind;
+    const price = Number(input?.price);
+    if (!ticker) return { ok: false, error: 'Unknown ticker' };
+    if (kind !== 'stop_loss' && kind !== 'take_profit') return { ok: false, error: 'Invalid kind' };
+    if (!Number.isFinite(price) || price <= 0) return { ok: false, error: 'Invalid price' };
+    const row = {
+      id: makeId(),
+      ticker,
+      kind,
+      price,
+      enabled: input?.enabled !== false,
+    };
+    setBook((prev) => ({
+      ...prev,
+      version: PORTFOLIO_VERSION,
+      stops: [
+        ...(prev.stops || []).filter((s) => !(s.ticker === ticker && s.kind === kind)),
+        row,
+      ],
+    }));
+    return { ok: true, stop: row };
+  }, []);
+
+  const removeStop = useCallback((id) => {
+    setBook((prev) => ({
+      ...prev,
+      version: PORTFOLIO_VERSION,
+      stops: (prev.stops || []).filter((s) => s.id !== id),
+    }));
+  }, []);
+
+  const executeStopSignals = useCallback(() => {
+    const priceOf = (t) => getStockByTicker(t)?.price ?? 0;
+    let hits = [];
+    setBook((prev) => {
+      const signals = evaluateStops(prev.holdings, priceOf, prev.stops || []);
+      if (!signals.length) {
+        hits = [];
+        return prev;
+      }
+      let cash = prev.cash;
+      let holdings = prev.holdings;
+      let ledger = [...(prev.ledger || [])];
+      let stops = [...(prev.stops || [])];
+      const sold = new Set();
+      const executed = [];
+      for (const sig of signals) {
+        const ticker = String(sig.stop.ticker).toUpperCase();
+        if (sold.has(ticker)) continue;
+        const stock = getStockByTicker(ticker);
+        if (!stock) continue;
+        const lot = (holdings || []).find((h) => h.ticker === ticker);
+        if (!lot) continue;
+        const outcome = sell(
+          { cash, holdings },
+          { ticker, shares: lot.shares, price: stock.price },
+        );
+        if (!outcome.ok) continue;
+        cash = outcome.cash;
+        holdings = outcome.holdings;
+        ledger = [...ledger, fillFromOutcome(outcome, 'stop')];
+        stops = stops.filter((s) => s.id !== sig.stop.id);
+        sold.add(ticker);
+        executed.push(sig);
+      }
+      hits = executed;
+      if (!executed.length) return prev;
+      return {
+        version: PORTFOLIO_VERSION,
+        cash,
+        holdings,
+        ledger,
+        stops,
+      };
+    });
+    return hits;
+  }, []);
+
   const resetToDefault = useCallback(() => {
     setBook(defaultBook());
   }, []);
@@ -111,6 +200,7 @@ export function PortfolioProvider({ children }) {
   const holdings = book.holdings;
   const cash = book.cash;
   const ledger = book.ledger;
+  const stops = book.stops || [];
 
   const priceOf = useCallback((ticker) => getStockByTicker(ticker)?.price ?? 0, []);
 
@@ -130,6 +220,7 @@ export function PortfolioProvider({ children }) {
 
   const marketValue = useMemo(() => positionValue(holdings, priceOf), [holdings, priceOf]);
   const pnl = useMemo(() => unrealizedPnL(holdings, priceOf), [holdings, priceOf]);
+  const realized = useMemo(() => realizedPnL(ledger), [ledger]);
   const equity = cash + marketValue;
 
   const value = useMemo(
@@ -138,18 +229,23 @@ export function PortfolioProvider({ children }) {
       cash,
       holdings,
       ledger,
+      stops,
       enriched,
       marketValue,
       equity,
       pnl,
+      realized,
       buyStock,
       sellStock,
       removePosition,
+      addStop,
+      removeStop,
+      executeStopSignals,
       resetToDefault,
     }),
     [
-      book, cash, holdings, ledger, enriched, marketValue, equity, pnl,
-      buyStock, sellStock, removePosition, resetToDefault,
+      book, cash, holdings, ledger, stops, enriched, marketValue, equity, pnl, realized,
+      buyStock, sellStock, removePosition, addStop, removeStop, executeStopSignals, resetToDefault,
     ],
   );
 

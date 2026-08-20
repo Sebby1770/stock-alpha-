@@ -1,6 +1,6 @@
-# AlphaRank 3.0 — Quant Stock Analysis Platform
+# AlphaRank 4.0 — Quant Stock Analysis Platform
 
-> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker**, momentum **Lab**, and **alerts** — built as an educational demo with **mock data only**.
+> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker** with stops and realized P&L, a factor **Lab**, **alerts**, and a return **correlation matrix** — built as an educational demo with **mock data only**.
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
 
@@ -30,17 +30,21 @@
 
 ### Watchlist & compare
 - Watchlist persisted in `localStorage`
+- Per-ticker **notes** persisted as `alpharank-notes`
 - Compare **2–3 tickers** side-by-side (radar + bars + metrics table)
 
 ### Paper broker
 - Cash ledger (default **$100,000**) plus average-up lots; fills at last **mock** price
-- Persisted as `alpharank-portfolio` v3 (`cash`, `holdings`, `ledger`); old holdings arrays are migrated in place
-- Buy and sell tickets, last-20 fill ledger, equity curve, allocation pie
+- Persisted as `alpharank-portfolio` v4 (`cash`, `holdings`, `ledger`, `stops`); v2 arrays and v3 books are migrated in place (`stops: []`)
+- Buy and sell tickets, last-20 fill ledger, **realized** P&L from closed lots, **Export ledger CSV**
+- Stop-loss / take-profit per holding; **Check stops** sells the full lot at last mock price
+- Factor attribution: value-weighted holdings vs equal-weight universe
 - Risk strip: max drawdown, Sharpe (from the mock curve), HHI concentration
 - Reset restores sample lots **and** $100,000 cash
 
 ### Lab (`/lab`)
-- Momentum factor backtest: trailing lookback rank → top-N equal-weight, rebalanced on a schedule
+- Factor backtest: **Momentum lookback**, Value, Growth, Profitability, Revisions, or Composite
+- Momentum ranks by trailing lookback return; other factors rank by static mock scores (still vs B&H)
 - Dual chart vs equal-weight buy-and-hold of the mock universe
 - Simulated histories only — not live markets
 
@@ -48,8 +52,13 @@
 - Price above / below and grade-at-least rules, persisted as `alpharank-alerts`
 - Evaluated against current mock quotes and grades; sidebar badge = enabled count
 
+### Correlation matrix (`/matrix`)
+- Pearson pairwise on daily returns from aligned mock price histories
+- Heatmap table, values in **−1…+1**
+
 ### UX
 - Navbar search → stock detail; press **`/`** to focus search
+- **Command palette** — `⌘K` / `Ctrl+K`; Enter navigates, Esc closes
 - Dark / light theme toggle
 - Focus rings, skip link, and ARIA labels for accessibility
 
@@ -74,7 +83,7 @@
 ```bash
 npm install
 npm run dev      # Vite dev server
-npm test         # Vitest (quant, broker, risk, backtest)
+npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution)
 npm run test:watch
 npm run build    # Production build (uses VITE_BASE)
 npm run preview  # Preview dist/
@@ -110,12 +119,18 @@ src/
 ├── lib/
 │   ├── quant.js            # Pure scoring, grade, filter, sort, CSV
 │   ├── quant.test.js
-│   ├── broker.js           # Paper buy/sell, marks, v3 migrate
+│   ├── broker.js           # Paper buy/sell, realized P&L, CSV, v4 migrate
 │   ├── broker.test.js
+│   ├── stops.js            # Stop-loss / take-profit evaluator
+│   ├── stops.test.js
 │   ├── risk.js             # Drawdown, vol, Sharpe, HHI, returns
 │   ├── risk.test.js
-│   ├── backtest.js         # Momentum vs equal-weight B&H
+│   ├── backtest.js         # Momentum + static-factor vs equal-weight B&H
 │   ├── backtest.test.js
+│   ├── correlation.js      # Daily returns + Pearson matrix
+│   ├── correlation.test.js
+│   ├── attribution.js      # Value-weighted factors vs universe
+│   ├── attribution.test.js
 │   ├── storage.js          # localStorage helpers
 │   └── format.js           # Display formatters
 ├── context/
@@ -130,7 +145,7 @@ src/
 │   └── community.js
 ├── components/
 │   ├── common/             # StockCard, QuantGrade, FactorBar, …
-│   └── layout/             # Navbar, Sidebar
+│   └── layout/             # Navbar, Sidebar, CommandPalette
 └── pages/
     ├── Dashboard.jsx
     ├── StockDetail.jsx
@@ -140,7 +155,8 @@ src/
     ├── Community.jsx
     ├── Portfolio.jsx
     ├── Lab.jsx
-    └── Alerts.jsx
+    ├── Alerts.jsx
+    └── Matrix.jsx
 ```
 
 ---
