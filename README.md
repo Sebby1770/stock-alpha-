@@ -1,8 +1,8 @@
-# AlphaRank 5.0 — Quant Stock Analysis Platform
+# AlphaRank 6.0 — Quant Stock Analysis Platform
 
 **Live site:** [https://sebby1770.github.io/stock-alpha-/](https://sebby1770.github.io/stock-alpha-/)
 
-> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker** with share snapshots, dividends, as-of marks, stops and realized P&L, a factor **Lab**, **alerts**, and a return **correlation matrix** — built as an educational demo with **mock data only**.
+> Factor-based quant ratings, stock screener **presets**, watchlist, compare mode, crowdsourced analysis, a **paper broker** with rebalance plans, contribution, share snapshots, dividends, as-of marks, stops and realized P&L, a factor **Lab**, **alerts**, a return **correlation matrix**, and **Monte Carlo Simulate** — built as an educational demo with **mock data only**.
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
 
@@ -24,6 +24,7 @@
 
 ### Screener
 - Filter by sector, market cap, min grade, min score, and text search
+- Named **presets** (save / apply / delete) persisted as `alpharank-screener-presets`
 - Sortable columns; **Export CSV** of the filtered set
 - Star stocks (watchlist) and toggle compare from each row
 - Empty state when filters match nothing
@@ -43,6 +44,8 @@
 - **Value as of** date marks lots from `priceHistory` (cash ledger unchanged)
 - Stop-loss / take-profit per holding; **Check stops** sells the full lot at last mock price
 - Factor attribution: value-weighted holdings vs equal-weight universe
+- **P&L contribution** table (weight and share of unrealized P&L)
+- **Rebalance** card: equal- or score-weight plan among lots (optional top N); **Apply plan** submits sells then buys — never auto-executes
 - Risk strip: max drawdown, Sharpe (from the mock curve), HHI concentration
 - Reset restores sample lots **and** $100,000 cash
 
@@ -59,6 +62,10 @@
 ### Correlation matrix (`/matrix`)
 - Pearson pairwise on daily returns from aligned mock price histories
 - Heatmap table, values in **−1…+1**
+
+### Simulate (`/simulate`)
+- Bootstrap Monte Carlo on equal-weight mock universe daily returns
+- Fan chart of p5–p95 with median path; educational only — not a forecast
 
 ### UX
 - Navbar search → stock detail; press **`/`** to focus search
@@ -87,7 +94,7 @@
 ```bash
 npm install
 npm run dev      # Vite dev server
-npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution, share, dividends, as-of)
+npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution, share, dividends, as-of, presets, rebalance, montecarlo, contribution)
 npm run test:watch
 npm run build    # Production build (uses VITE_BASE)
 npm run preview  # Preview dist/
@@ -141,6 +148,14 @@ src/
 │   ├── correlation.test.js
 │   ├── attribution.js      # Value-weighted factors vs universe
 │   ├── attribution.test.js
+│   ├── presets.js          # Screener preset encode/load/save
+│   ├── presets.test.js
+│   ├── rebalance.js        # Equal / score-weight rebalance plan
+│   ├── rebalance.test.js
+│   ├── montecarlo.js       # Bootstrap path simulation
+│   ├── montecarlo.test.js
+│   ├── contribution.js     # Holding P&L contribution
+│   ├── contribution.test.js
 │   ├── storage.js          # localStorage helpers
 │   └── format.js           # Display formatters
 ├── context/
@@ -166,7 +181,8 @@ src/
     ├── Portfolio.jsx
     ├── Lab.jsx
     ├── Alerts.jsx
-    └── Matrix.jsx
+    ├── Matrix.jsx
+    └── Simulate.jsx
 ```
 
 ---

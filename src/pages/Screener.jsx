@@ -2,10 +2,11 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   SlidersHorizontal, Search, ArrowUpDown, ArrowUp, ArrowDown,
-  TrendingUp, TrendingDown, Download, GitCompare,
+  TrendingUp, TrendingDown, Download, GitCompare, Bookmark, Trash2, Save,
 } from 'lucide-react';
 import { stocks, sectors } from '../data/stocks';
 import { filterScreener, sortStocks, stocksToCsv, GRADES } from '../lib/quant';
+import { loadPresets, savePresets, makePreset } from '../lib/presets';
 import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
@@ -59,6 +60,9 @@ export default function Screener() {
   const [sortDir, setSortDir] = useState('desc');
   const [minScore, setMinScore] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
+  const [presets, setPresets] = useState(() => loadPresets());
+  const [presetId, setPresetId] = useState('');
+  const [presetName, setPresetName] = useState('');
 
   const filtered = useMemo(() => {
     const mcapOpt = MCAP_OPTS[mcap];
@@ -79,6 +83,39 @@ export default function Screener() {
       setSortKey(key);
       setSortDir('desc');
     }
+  };
+
+  const currentFilters = () => ({
+    query, sector, mcap, minGrade, minScore, sortKey, sortDir,
+  });
+
+  const applyPreset = (id) => {
+    setPresetId(id);
+    const p = presets.find((x) => x.id === id);
+    if (!p) return;
+    setQuery(p.query);
+    setSector(p.sector);
+    setMcap(p.mcap);
+    setMinGrade(p.minGrade);
+    setMinScore(p.minScore);
+    setSortKey(p.sortKey);
+    setSortDir(p.sortDir);
+  };
+
+  const onSavePreset = () => {
+    const made = makePreset(presetName, currentFilters());
+    const withoutSame = presets.filter((x) => x.name.toLowerCase() !== made.name.toLowerCase());
+    const next = savePresets([...withoutSame, made]);
+    setPresets(next);
+    setPresetId(made.id);
+    setPresetName('');
+  };
+
+  const onDeletePreset = () => {
+    if (!presetId) return;
+    const next = savePresets(presets.filter((x) => x.id !== presetId));
+    setPresets(next);
+    setPresetId('');
   };
 
   const clearFilters = () => {
@@ -208,6 +245,58 @@ export default function Screener() {
           </div>
         </div>
       )}
+
+      <div className="card px-4 py-3 flex items-end gap-2 flex-wrap">
+        <Bookmark size={14} className="text-brand-blue mb-2.5 hidden sm:block" aria-hidden="true" />
+        <div className="min-w-[140px] flex-1">
+          <label htmlFor="screener-preset" className="block text-xs text-slate-400 mb-1.5">Preset</label>
+          <select
+            id="screener-preset"
+            className="select"
+            value={presetId}
+            onChange={(e) => applyPreset(e.target.value)}
+          >
+            <option value="">Apply…</option>
+            {presets.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary flex items-center gap-1.5 disabled:opacity-40"
+          onClick={onDeletePreset}
+          disabled={!presetId}
+          aria-label="Delete selected preset"
+        >
+          <Trash2 size={14} /> Delete
+        </button>
+        <div className="min-w-[140px] flex-1">
+          <label htmlFor="screener-preset-name" className="block text-xs text-slate-400 mb-1.5">Save as</label>
+          <input
+            id="screener-preset-name"
+            className="input"
+            placeholder="Name"
+            value={presetName}
+            onChange={(e) => setPresetName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (presetName.trim()) onSavePreset();
+              }
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn-secondary flex items-center gap-1.5 disabled:opacity-40"
+          onClick={onSavePreset}
+          disabled={!presetName.trim()}
+          aria-label="Save current filters as preset"
+        >
+          <Save size={14} /> Save
+        </button>
+      </div>
 
       <div className="flex items-center gap-3 text-sm">
         <span className="text-slate-400">

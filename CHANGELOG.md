@@ -5,6 +5,19 @@ All notable changes to AlphaRank are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [6.0.0] — 2026-08-20
+
+### Added
+- Screener **presets** (`src/lib/presets.js`): `{ id, name, query, sector, mcap, minGrade, minScore, sortKey, sortDir }` saved as `alpharank-screener-presets`; save / apply / delete on the screener
+- Rebalance planner (`src/lib/rebalance.js`): `planRebalance` equal- or score-weights lots (optional `topN` / `universe`); Portfolio **Rebalance** card lists suggested trades; **Apply plan** runs `sellStock` then `buyStock` (does not auto-execute)
+- Monte Carlo (`src/lib/montecarlo.js`) and **Simulate** at `/simulate`: bootstrap equal-weight universe daily returns; p5–p95 band + p50 line; sidebar Tools + command palette
+- Holding **contribution** (`src/lib/contribution.js`): per-lot P&L, weight, share of P&L; small table on Portfolio
+- Vitest: `presets.test.js`, `rebalance.test.js`, `montecarlo.test.js`, `contribution.test.js`
+
+### Changed
+- Version bumped to 6.0.0
+- README 6.0 feature list (Simulate, presets, rebalance)
+
 ## [5.0.0] — 2026-08-20
 
 ### Added

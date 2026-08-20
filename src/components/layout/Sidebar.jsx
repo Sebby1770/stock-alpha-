@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Bell,
   Grid3x3,
+  LineChart,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useWatchlist } from '../../context/WatchlistContext';
@@ -29,6 +30,7 @@ const toolItems = [
   { to: '/lab', icon: FlaskConical, label: 'Lab' },
   { to: '/alerts', icon: Bell, label: 'Alerts', badge: 'alerts' },
   { to: '/matrix', icon: Grid3x3, label: 'Matrix' },
+  { to: '/simulate', icon: LineChart, label: 'Simulate' },
 ];
 
 function NavGroup({ title, items, badgeFor }) {

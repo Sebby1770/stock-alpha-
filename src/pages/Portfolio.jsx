@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Briefcase, TrendingUp, PieChart, DollarSign, Trash2, RotateCcw,
   ArrowDownRight, ArrowUpRight, Wallet, Activity, Shield,
-  Download, Flag, Layers, Link2, Upload, Landmark,
+  Download, Flag, Layers, Link2, Upload, Landmark, Scale, Percent,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { usePortfolio } from '../context/PortfolioContext';
@@ -20,6 +20,8 @@ import { fmtMoney } from '../lib/format';
 import { encodeBook, decodeBook } from '../lib/share';
 import { annualIncome, yieldOnCost } from '../lib/dividends';
 import { priceAsOf, valueAsOf } from '../lib/asof';
+import { planRebalance } from '../lib/rebalance';
+import { holdingContribution } from '../lib/contribution';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -69,6 +71,9 @@ export default function Portfolio() {
   const [shareMsg, setShareMsg] = useState('');
   const [ioMsg, setIoMsg] = useState('');
   const [dismissedSnap, setDismissedSnap] = useState(false);
+  const [rebMode, setRebMode] = useState('equal');
+  const [rebTopN, setRebTopN] = useState(0);
+  const [rebMsg, setRebMsg] = useState('');
   const didCheckStops = useRef(false);
   const fileRef = useRef(null);
 
@@ -153,6 +158,44 @@ export default function Portfolio() {
     }),
     [holdings],
   );
+
+  const contrib = useMemo(
+    () => holdingContribution(rawHoldings, (t) => {
+      const row = holdings.find((h) => h.ticker === t);
+      return row?.stock?.price ?? stocks.find((s) => s.ticker === t)?.price ?? 0;
+    }),
+    [rawHoldings, holdings],
+  );
+
+  const rebPlan = useMemo(() => {
+    const prices = {};
+    const scores = {};
+    for (const h of holdings) {
+      prices[h.ticker] = h.stock.price;
+      scores[h.ticker] = h.stock.quantScore;
+    }
+    return planRebalance({
+      holdings: rawHoldings,
+      cash,
+      prices,
+      scores,
+      mode: rebMode,
+      topN: rebTopN || undefined,
+    });
+  }, [holdings, rawHoldings, cash, rebMode, rebTopN]);
+
+  const applyRebalance = () => {
+    const sells = rebPlan.trades.filter((t) => t.side === 'sell');
+    const buys = rebPlan.trades.filter((t) => t.side === 'buy');
+    let n = 0;
+    for (const t of [...sells, ...buys]) {
+      const result = t.side === 'sell'
+        ? sellStock(t.ticker, t.shares, 'rebalance')
+        : buyStock(t.ticker, t.shares, 'rebalance');
+      if (result?.ok) n += 1;
+    }
+    setRebMsg(`Applied ${n} of ${rebPlan.trades.length} trades`);
+  };
 
   const exportLedger = () => {
     const csv = ledgerToCsv(ledger);
@@ -499,6 +542,138 @@ export default function Portfolio() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {holdings.length > 0 && contrib.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="p-5 border-b border-navy-700">
+            <h2 className="section-title">
+              <Percent size={16} className="text-brand-blue" aria-hidden="true" /> P&amp;L contribution
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">Unrealized P&amp;L share of the open book</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-slate-500 border-b border-navy-700 bg-navy-850">
+                  <th className="text-left px-5 py-2 font-medium">Ticker</th>
+                  <th className="text-right px-3 py-2 font-medium">P&amp;L</th>
+                  <th className="text-right px-3 py-2 font-medium">Weight</th>
+                  <th className="text-right px-5 py-2 font-medium">Share of P&amp;L</th>
+                </tr>
+              </thead>
+              <tbody>
+                {contrib.map((row) => (
+                  <tr key={row.ticker} className="border-b border-navy-700/50">
+                    <td className="px-5 py-2 font-bold text-slate-200">{row.ticker}</td>
+                    <td className={clsx(
+                      'px-3 py-2 text-right font-mono',
+                      row.pnl >= 0 ? 'text-brand-green' : 'text-brand-red',
+                    )}
+                    >
+                      {row.pnl >= 0 ? '+' : ''}{fmtMoney(row.pnl)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-slate-300">
+                      {(row.weight * 100).toFixed(1)}%
+                    </td>
+                    <td className={clsx(
+                      'px-5 py-2 text-right font-mono',
+                      row.shareOfPnl >= 0 ? 'text-brand-green' : 'text-brand-red',
+                    )}
+                    >
+                      {row.shareOfPnl >= 0 ? '+' : ''}{(row.shareOfPnl * 100).toFixed(1)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {holdings.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between p-5 border-b border-navy-700 gap-3 flex-wrap">
+            <div>
+              <h2 className="section-title">
+                <Scale size={16} className="text-brand-purple" aria-hidden="true" /> Rebalance
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Suggested tickets only — Apply plan runs sells then buys at last mock price
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label htmlFor="reb-mode" className="sr-only">Weighting</label>
+              <select
+                id="reb-mode"
+                className="select w-auto"
+                value={rebMode}
+                onChange={(e) => setRebMode(e.target.value)}
+              >
+                <option value="equal">Equal weight</option>
+                <option value="score">Score weight</option>
+              </select>
+              <label htmlFor="reb-topn" className="sr-only">Top N</label>
+              <select
+                id="reb-topn"
+                className="select w-auto"
+                value={rebTopN}
+                onChange={(e) => setRebTopN(Number(e.target.value))}
+              >
+                <option value={0}>All names</option>
+                <option value={3}>Top 3</option>
+                <option value={5}>Top 5</option>
+                <option value={8}>Top 8</option>
+              </select>
+              <button
+                type="button"
+                className="btn-primary disabled:opacity-40"
+                onClick={applyRebalance}
+                disabled={rebPlan.trades.length === 0}
+              >
+                Apply plan
+              </button>
+            </div>
+          </div>
+          {rebMsg && <p className="px-5 pt-3 text-xs text-slate-400">{rebMsg}</p>}
+          <div className="px-5 py-3 text-xs text-slate-500">
+            Turnover {(rebPlan.turnover * 100).toFixed(1)}% · {rebPlan.trades.length} ticket{rebPlan.trades.length === 1 ? '' : 's'}
+          </div>
+          {rebPlan.trades.length === 0 ? (
+            <p className="px-5 pb-5 text-sm text-slate-500">Already on target (or no tickets above $1).</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-slate-500 border-b border-navy-700 bg-navy-850">
+                    <th className="text-left px-5 py-2 font-medium">Ticker</th>
+                    <th className="text-left px-3 py-2 font-medium">Side</th>
+                    <th className="text-right px-3 py-2 font-medium">Shares</th>
+                    <th className="text-right px-5 py-2 font-medium">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rebPlan.trades.map((t) => (
+                    <tr key={`${t.side}-${t.ticker}`} className="border-b border-navy-700/50">
+                      <td className="px-5 py-2 font-bold text-slate-200">{t.ticker}</td>
+                      <td className="px-3 py-2">
+                        <span className={clsx(
+                          'badge uppercase',
+                          t.side === 'buy' ? 'bg-brand-green/15 text-brand-green' : 'bg-brand-red/15 text-brand-red',
+                        )}
+                        >
+                          {t.side}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-300">{t.shares.toFixed(2)}</td>
+                      <td className="px-5 py-2 text-right font-mono text-slate-200">{fmtMoney(t.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
