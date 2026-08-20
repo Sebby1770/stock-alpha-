@@ -2,7 +2,7 @@
  * Pure paper-broker: cash + lots, no React, no I/O.
  */
 
-export const PORTFOLIO_VERSION = 4;
+export const PORTFOLIO_VERSION = 5;
 export const STARTING_CASH = 100_000;
 
 export const DEFAULT_HOLDINGS = [
@@ -69,7 +69,8 @@ export function defaultBook() {
 }
 
 /**
- * Upgrade v2 array-of-holdings or a v3 cash-ledger book to the v4 book (adds stops).
+ * Upgrade v2 array-of-holdings or a v3/v4 cash-ledger book to the v5 book.
+ * v5 is v4-compatible (cash, holdings, ledger, stops); optional asOf is UI-only.
  */
 export function migratePortfolio(saved) {
   if (saved == null) return defaultBook();
@@ -101,6 +102,33 @@ export function migratePortfolio(saved) {
   }
 
   return defaultBook();
+}
+
+/**
+ * Parse a book JSON string (or object) and migrate to the current shape.
+ * @returns {{ ok: true, book: object } | { ok: false, error: string }}
+ */
+export function parseBookJson(raw) {
+  let data = raw;
+  if (typeof raw === 'string') {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return { ok: false, error: 'Invalid JSON' };
+    }
+  }
+  if (data == null || (typeof data !== 'object' && !Array.isArray(data))) {
+    return { ok: false, error: 'Invalid book' };
+  }
+  const looksLikeBook =
+    Array.isArray(data) ||
+    'cash' in data ||
+    'holdings' in data ||
+    'ledger' in data ||
+    'stops' in data ||
+    Number(data.version) > 0;
+  if (!looksLikeBook) return { ok: false, error: 'Invalid book' };
+  return { ok: true, book: migratePortfolio(data) };
 }
 
 function parseOrder(state, order) {

@@ -9,6 +9,7 @@ import {
   positionValue,
   unrealizedPnL,
   realizedPnL,
+  normalizeHoldings,
   PORTFOLIO_VERSION,
 } from '../lib/broker';
 import { evaluateStops } from '../lib/stops';
@@ -197,6 +198,23 @@ export function PortfolioProvider({ children }) {
     setBook(defaultBook());
   }, []);
 
+  const loadBook = useCallback((next) => {
+    setBook(migratePortfolio(next));
+  }, []);
+
+  const applySnapshot = useCallback((snap) => {
+    const cashNext = Number(snap?.cash);
+    if (!Number.isFinite(cashNext)) return { ok: false, error: 'Invalid snapshot' };
+    const holdingsNext = normalizeHoldings(snap?.holdings);
+    setBook((prev) => ({
+      ...prev,
+      version: PORTFOLIO_VERSION,
+      cash: cashNext,
+      holdings: holdingsNext,
+    }));
+    return { ok: true };
+  }, []);
+
   const holdings = book.holdings;
   const cash = book.cash;
   const ledger = book.ledger;
@@ -242,10 +260,13 @@ export function PortfolioProvider({ children }) {
       removeStop,
       executeStopSignals,
       resetToDefault,
+      loadBook,
+      applySnapshot,
     }),
     [
       book, cash, holdings, ledger, stops, enriched, marketValue, equity, pnl, realized,
       buyStock, sellStock, removePosition, addStop, removeStop, executeStopSignals, resetToDefault,
+      loadBook, applySnapshot,
     ],
   );
 

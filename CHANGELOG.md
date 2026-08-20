@@ -5,6 +5,20 @@ All notable changes to AlphaRank are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [5.0.0] — 2026-08-20
+
+### Added
+- Share snapshot (`src/lib/share.js`): `encodeBook` / `decodeBook` pack `{ cash, holdings }` into a compact `?book=` query; Portfolio **Copy share link** and **Load snapshot** (never silent overwrite)
+- Estimated dividends (`src/lib/dividends.js`): `annualIncome` and `yieldOnCost`; Portfolio shows **Est. annual income**
+- Import / export full paper book JSON (cash, holdings, ledger, stops) via `parseBookJson` + `migratePortfolio`
+- As-of valuation (`src/lib/asof.js`): `valueAsOf` uses each stock’s `priceHistory` close on/before the date, else last price; Portfolio **Value as of** date input updates displayed MTM only
+- GitHub Pages deploy: CI `pages` job (push to `main`) publishes `dist/` to `gh-pages` with `peaceiris/actions-gh-pages@v4`; `public/.nojekyll`
+
+### Changed
+- Version bumped to 5.0.0
+- Paper book version is 5 (v4-compatible shape; optional asOf stays UI-only)
+- README live site and 5.0 feature list; `index.html` meta description notes educational mock data
+
 ## [4.0.0] — 2026-08-20
 
 ### Added

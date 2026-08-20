@@ -1,10 +1,10 @@
-# AlphaRank 4.0 — Quant Stock Analysis Platform
+# AlphaRank 5.0 — Quant Stock Analysis Platform
 
-> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker** with stops and realized P&L, a factor **Lab**, **alerts**, and a return **correlation matrix** — built as an educational demo with **mock data only**.
+**Live site:** [https://sebby1770.github.io/stock-alpha-/](https://sebby1770.github.io/stock-alpha-/)
+
+> Factor-based quant ratings, stock screener, watchlist, compare mode, crowdsourced analysis, a **paper broker** with share snapshots, dividends, as-of marks, stops and realized P&L, a factor **Lab**, **alerts**, and a return **correlation matrix** — built as an educational demo with **mock data only**.
 
 ![React](https://img.shields.io/badge/React-18-blue?logo=react) ![Vite](https://img.shields.io/badge/Vite-5-purple?logo=vite) ![Tailwind](https://img.shields.io/badge/Tailwind-3-38bdf8?logo=tailwindcss) ![Vitest](https://img.shields.io/badge/Vitest-2-6e9f18?logo=vitest)
-
-**Live (GitHub Pages):** `https://sebby1770.github.io/stock-alpha-/`
 
 ---
 
@@ -35,8 +35,12 @@
 
 ### Paper broker
 - Cash ledger (default **$100,000**) plus average-up lots; fills at last **mock** price
-- Persisted as `alpharank-portfolio` v4 (`cash`, `holdings`, `ledger`, `stops`); v2 arrays and v3 books are migrated in place (`stops: []`)
+- Persisted as `alpharank-portfolio` v5 (`cash`, `holdings`, `ledger`, `stops`); v2 arrays and v3/v4 books are migrated in place
 - Buy and sell tickets, last-20 fill ledger, **realized** P&L from closed lots, **Export ledger CSV**
+- **Copy share link** encodes cash + lots as `?book=`; visiting `/portfolio?book=…` offers **Load snapshot** (does not overwrite until confirmed)
+- **Export / Import book** JSON (full v4/v5 book: cash, holdings, ledger, stops)
+- **Est. annual income** from mock `dividendYield`; yield on cost vs entry
+- **Value as of** date marks lots from `priceHistory` (cash ledger unchanged)
 - Stop-loss / take-profit per holding; **Check stops** sells the full lot at last mock price
 - Factor attribution: value-weighted holdings vs equal-weight universe
 - Risk strip: max drawdown, Sharpe (from the mock curve), HHI concentration
@@ -83,7 +87,7 @@
 ```bash
 npm install
 npm run dev      # Vite dev server
-npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution)
+npm test         # Vitest (quant, broker, risk, backtest, stops, correlation, attribution, share, dividends, as-of)
 npm run test:watch
 npm run build    # Production build (uses VITE_BASE)
 npm run preview  # Preview dist/
@@ -119,8 +123,14 @@ src/
 ├── lib/
 │   ├── quant.js            # Pure scoring, grade, filter, sort, CSV
 │   ├── quant.test.js
-│   ├── broker.js           # Paper buy/sell, realized P&L, CSV, v4 migrate
+│   ├── broker.js           # Paper buy/sell, realized P&L, CSV, v5 migrate, parseBookJson
 │   ├── broker.test.js
+│   ├── share.js            # Compact ?book= encode/decode
+│   ├── share.test.js
+│   ├── dividends.js        # annualIncome, yieldOnCost
+│   ├── dividends.test.js
+│   ├── asof.js             # Historical MTM from priceHistory
+│   ├── asof.test.js
 │   ├── stops.js            # Stop-loss / take-profit evaluator
 │   ├── stops.test.js
 │   ├── risk.js             # Drawdown, vol, Sharpe, HHI, returns
@@ -184,7 +194,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR:
 1. `npm ci`
 2. `npm test`
 3. `npm run lint`
-4. `npm run build`
+4. `npm run build` (`VITE_BASE=/stock-alpha-/`)
+
+On **push to `main`**, a `pages` job deploys `dist/` to the `gh-pages` branch (`peaceiris/actions-gh-pages@v4`). Live site: [https://sebby1770.github.io/stock-alpha-/](https://sebby1770.github.io/stock-alpha-/).
 
 ---
 

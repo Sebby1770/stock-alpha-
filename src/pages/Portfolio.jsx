@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Briefcase, TrendingUp, PieChart, DollarSign, Trash2, RotateCcw,
   ArrowDownRight, ArrowUpRight, Wallet, Activity, Shield,
-  Download, Flag, Layers,
+  Download, Flag, Layers, Link2, Upload, Landmark,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { usePortfolio } from '../context/PortfolioContext';
@@ -13,10 +13,13 @@ import { FactorBar } from '../components/common/FactorBar';
 import EmptyState from '../components/common/EmptyState';
 import WatchlistButton from '../components/common/WatchlistButton';
 import { maxDrawdown, sharpe, herfindahl, equityReturns } from '../lib/risk';
-import { ledgerToCsv } from '../lib/broker';
+import { ledgerToCsv, parseBookJson } from '../lib/broker';
 import { factorAttribution } from '../lib/attribution';
 import { FACTOR_KEYS, FACTOR_META } from '../lib/quant';
 import { fmtMoney } from '../lib/format';
+import { encodeBook, decodeBook } from '../lib/share';
+import { annualIncome, yieldOnCost } from '../lib/dividends';
+import { priceAsOf, valueAsOf } from '../lib/asof';
 import clsx from 'clsx';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -49,10 +52,12 @@ const buildEquityCurve = (holdings, cash) => {
 
 export default function Portfolio() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
-    enriched, cash, equity, pnl, realized, marketValue, ledger, stops,
+    book, enriched, cash, equity, pnl, realized, marketValue, ledger, stops, holdings: rawHoldings,
     buyStock, sellStock, removePosition, resetToDefault,
     addStop, removeStop, executeStopSignals,
+    loadBook, applySnapshot,
   } = usePortfolio();
   const [buyForm, setBuyForm] = useState({ ticker: '', shares: '' });
   const [sellForm, setSellForm] = useState({ ticker: '', shares: '' });
@@ -60,7 +65,12 @@ export default function Portfolio() {
   const [sellError, setSellError] = useState('');
   const [stopDrafts, setStopDrafts] = useState({});
   const [stopMsg, setStopMsg] = useState('');
+  const [asOf, setAsOf] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
+  const [ioMsg, setIoMsg] = useState('');
+  const [dismissedSnap, setDismissedSnap] = useState(false);
   const didCheckStops = useRef(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     if (didCheckStops.current) return;
@@ -68,21 +78,54 @@ export default function Portfolio() {
     executeStopSignals();
   }, [executeStopSignals]);
 
-  const holdings = enriched;
+  const snapshot = useMemo(() => decodeBook(searchParams.get('book') || ''), [searchParams]);
+
+  const marked = useMemo(() => {
+    if (!asOf) {
+      return { rows: enriched, marketValue, equity, pnl };
+    }
+    const rows = enriched.map((h) => {
+      const px = priceAsOf(h.stock, asOf);
+      const currentVal = px * h.shares;
+      const gain = currentVal - h.costBasis;
+      const gainPct = h.costBasis ? (gain / h.costBasis) * 100 : 0;
+      return { ...h, markPrice: px, currentVal, gain, gainPct };
+    });
+    const mv = valueAsOf(rawHoldings, stocks, asOf);
+    return {
+      rows,
+      marketValue: mv,
+      equity: cash + mv,
+      pnl: rows.reduce((s, h) => s + h.gain, 0),
+    };
+  }, [asOf, enriched, marketValue, equity, pnl, cash, rawHoldings]);
+
+  const holdings = marked.rows;
+  const displayMv = marked.marketValue;
+  const displayEquity = marked.equity;
+  const displayPnl = marked.pnl;
   const totalCost = holdings.reduce((s, h) => s + h.costBasis, 0);
   const dailyPnL = holdings.reduce((s, h) => s + h.stock.change * h.shares, 0);
+  const income = useMemo(() => annualIncome(rawHoldings, stocks), [rawHoldings]);
+  const yoc = useMemo(() => yieldOnCost(rawHoldings, stocks), [rawHoldings]);
   const equityCurve = useMemo(() => buildEquityCurve(holdings, cash), [holdings, cash]);
+  const historyRange = useMemo(() => {
+    const dates = holdings.flatMap((h) => (h.stock?.priceHistory || []).map((p) => p.date)).filter(Boolean);
+    if (!dates.length) return { min: '', max: '' };
+    dates.sort();
+    return { min: dates[0], max: dates[dates.length - 1] };
+  }, [holdings]);
 
   const risk = useMemo(() => {
     const rets = equityReturns(equityCurve);
-    const mv = marketValue;
+    const mv = displayMv;
     const weights = mv > 0 ? holdings.map((h) => h.currentVal / mv) : [];
     return {
       maxDd: maxDrawdown(equityCurve),
       sharpe: sharpe(rets),
       hhi: herfindahl(weights),
     };
-  }, [equityCurve, holdings, marketValue]);
+  }, [equityCurve, holdings, displayMv]);
 
   const pieData = [
     ...holdings
@@ -90,10 +133,10 @@ export default function Portfolio() {
       .sort((a, b) => b.currentVal - a.currentVal)
       .map((h) => ({
         name: h.ticker,
-        value: equity > 0 ? Math.round((h.currentVal / equity) * 1000) / 10 : 0,
+        value: displayEquity > 0 ? Math.round((h.currentVal / displayEquity) * 1000) / 10 : 0,
       })),
-    ...(cash > 0 && equity > 0
-      ? [{ name: 'CASH', value: Math.round((cash / equity) * 1000) / 10 }]
+    ...(cash > 0 && displayEquity > 0
+      ? [{ name: 'CASH', value: Math.round((cash / displayEquity) * 1000) / 10 }]
       : []),
   ];
 
@@ -120,6 +163,68 @@ export default function Portfolio() {
     a.download = `alpharank-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const copyShareLink = async () => {
+    const encoded = encodeBook({ cash, holdings: rawHoldings });
+    const origin = window.location.origin;
+    const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+    const url = `${origin}${basename}/portfolio?book=${encodeURIComponent(encoded)}`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        throw new Error('clipboard');
+      }
+      setShareMsg('Copied');
+    } catch {
+      setShareMsg('Copy failed');
+    }
+    window.setTimeout(() => setShareMsg(''), 2000);
+  };
+
+  const exportBook = () => {
+    const payload = {
+      version: book.version,
+      cash: book.cash,
+      holdings: book.holdings,
+      ledger: book.ledger,
+      stops: book.stops || [],
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `alpharank-book-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setIoMsg('Book exported');
+  };
+
+  const onImportFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const parsed = parseBookJson(String(reader.result || ''));
+      if (!parsed.ok) {
+        setIoMsg(parsed.error || 'Import failed');
+        return;
+      }
+      loadBook(parsed.book);
+      setIoMsg('Book imported');
+    };
+    reader.readAsText(file);
+  };
+
+  const onLoadSnapshot = () => {
+    if (!snapshot) return;
+    applySnapshot(snapshot);
+    setDismissedSnap(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('book');
+    setSearchParams(next, { replace: true });
   };
 
   const onCheckStops = () => {
@@ -194,15 +299,83 @@ export default function Portfolio() {
             Cash ledger · fills at last mock price · saved in this browser
           </p>
         </div>
-        <button
-          type="button"
-          onClick={resetToDefault}
-          className="btn-secondary flex items-center gap-2"
-          title="Reset to sample holdings and $100,000 cash"
-        >
-          <RotateCcw size={14} /> Reset
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-2 text-xs text-slate-400">
+            Value as of
+            <input
+              type="date"
+              className="input py-1.5 w-auto"
+              value={asOf}
+              min={historyRange.min || undefined}
+              max={historyRange.max || undefined}
+              aria-label="Value as of"
+              onChange={(e) => setAsOf(e.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={copyShareLink}
+            className="btn-secondary flex items-center gap-2"
+            title="Copy a URL with cash and holdings"
+          >
+            <Link2 size={14} /> {shareMsg || 'Copy share link'}
+          </button>
+          <button
+            type="button"
+            onClick={exportBook}
+            className="btn-secondary flex items-center gap-2"
+            title="Export full book JSON"
+          >
+            <Download size={14} /> Export book
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            aria-label="Import book JSON"
+            onChange={onImportFile}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="btn-secondary flex items-center gap-2"
+            title="Import a v4/v5 book JSON"
+          >
+            <Upload size={14} /> Import book
+          </button>
+          <button
+            type="button"
+            onClick={resetToDefault}
+            className="btn-secondary flex items-center gap-2"
+            title="Reset to sample holdings and $100,000 cash"
+          >
+            <RotateCcw size={14} /> Reset
+          </button>
+        </div>
       </div>
+
+      {ioMsg && <p className="text-xs text-slate-400 -mt-2">{ioMsg}</p>}
+
+      {snapshot && !dismissedSnap && (
+        <div className="card p-4 flex items-center justify-between gap-3 flex-wrap border-brand-blue/30">
+          <div>
+            <p className="text-sm font-semibold text-slate-100">Shared snapshot</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {snapshot.holdings.length} lot{snapshot.holdings.length === 1 ? '' : 's'} · cash {fmtMoney(snapshot.cash)}.
+              Loading replaces cash and holdings in this browser (ledger stays).
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" className="btn-primary" onClick={onLoadSnapshot}>
+              Load snapshot
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setDismissedSnap(true)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card p-5 glow-card">
@@ -214,9 +387,9 @@ export default function Portfolio() {
         </div>
         <div className="card p-5">
           <div className="text-xs text-slate-400 mb-1">Equity</div>
-          <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(equity)}</div>
+          <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(displayEquity)}</div>
           <div className="text-xs text-slate-500 mt-1">
-            Cash + MV {fmtBig(marketValue)}
+            Cash + MV {fmtBig(displayMv)}{asOf ? ` · as of ${asOf}` : ''}
           </div>
         </div>
         <div className="card p-5">
@@ -224,8 +397,8 @@ export default function Portfolio() {
           <div className="flex items-end gap-5 flex-wrap">
             <div>
               <div className="text-[10px] uppercase tracking-wider text-slate-500">Unrealized</div>
-              <div className={clsx('text-2xl font-extrabold font-mono', pnl >= 0 ? 'text-brand-green' : 'text-brand-red')}>
-                {pnl >= 0 ? '+' : ''}{fmtBig(pnl)}
+              <div className={clsx('text-2xl font-extrabold font-mono', displayPnl >= 0 ? 'text-brand-green' : 'text-brand-red')}>
+                {displayPnl >= 0 ? '+' : ''}{fmtBig(displayPnl)}
               </div>
             </div>
             <div>
@@ -243,6 +416,16 @@ export default function Portfolio() {
             {dailyPnL >= 0 ? '+' : ''}{fmtBig(dailyPnL)}
           </div>
           <div className="text-xs text-slate-500 mt-1">{holdings.length} open lots</div>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <div className="text-xs text-slate-400 mb-1 flex items-center gap-1.5">
+          <Landmark size={12} aria-hidden="true" /> Est. annual income
+        </div>
+        <div className="text-2xl font-extrabold font-mono text-slate-100">{fmtBig(income)}</div>
+        <div className="text-xs text-slate-500 mt-1">
+          Mock dividends at last price · yield on cost {Number.isFinite(yoc) ? yoc.toFixed(2) : '—'}%
         </div>
       </div>
 
@@ -552,7 +735,7 @@ export default function Portfolio() {
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-slate-300">{h.shares}</td>
                         <td className="px-3 py-3 text-right font-mono text-slate-400">${h.entryPrice.toFixed(2)}</td>
-                        <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">${h.stock.price.toFixed(2)}</td>
+                        <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">${(h.markPrice ?? h.stock.price).toFixed(2)}</td>
                         <td className="px-3 py-3 text-right font-mono font-bold text-slate-100">{fmtBig(h.currentVal)}</td>
                         <td className={clsx('px-3 py-3 text-right font-mono font-semibold', pos ? 'text-brand-green' : 'text-brand-red')}>
                           {pos ? '+' : ''}{fmtBig(h.gain)}

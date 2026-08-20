@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buy, sell, positionValue, unrealizedPnL, realizedPnL, ledgerToCsv,
-  migratePortfolio, STARTING_CASH, DEFAULT_HOLDINGS, PORTFOLIO_VERSION,
+  migratePortfolio, parseBookJson, STARTING_CASH, DEFAULT_HOLDINGS, PORTFOLIO_VERSION,
 } from './broker.js';
 
 const empty = { cash: 10_000, holdings: [] };
@@ -140,7 +140,7 @@ describe('migratePortfolio', () => {
     const old = [{ ticker: 'nvda', shares: 2, entryPrice: 100 }];
     const book = migratePortfolio(old);
     expect(book.version).toBe(PORTFOLIO_VERSION);
-    expect(book.version).toBe(4);
+    expect(book.version).toBe(5);
     expect(book.cash).toBe(STARTING_CASH);
     expect(book.holdings).toEqual([{ ticker: 'NVDA', shares: 2, entryPrice: 100 }]);
     expect(book.ledger).toEqual([]);
@@ -152,7 +152,7 @@ describe('migratePortfolio', () => {
     expect(book.cash).toBe(STARTING_CASH);
     expect(book.holdings).toHaveLength(DEFAULT_HOLDINGS.length);
     expect(book.stops).toEqual([]);
-    expect(book.version).toBe(4);
+    expect(book.version).toBe(5);
   });
 
   it('upgrades a v3 book by adding stops and bumping version', () => {
@@ -163,7 +163,7 @@ describe('migratePortfolio', () => {
       ledger: [{ side: 'buy', ticker: 'AAA' }],
     };
     const book = migratePortfolio(v3);
-    expect(book.version).toBe(4);
+    expect(book.version).toBe(5);
     expect(book.stops).toEqual([]);
     expect(book.cash).toBe(5000);
     expect(book.ledger).toHaveLength(1);
@@ -179,9 +179,57 @@ describe('migratePortfolio', () => {
       stops: [{ id: 's1', ticker: 'aaa', kind: 'stop_loss', price: 10, enabled: true }],
     };
     const book = migratePortfolio(v4);
-    expect(book.version).toBe(4);
+    expect(book.version).toBe(5);
     expect(book.stops).toHaveLength(1);
     expect(book.stops[0].ticker).toBe('AAA');
     expect(book.stops[0].kind).toBe('stop_loss');
+  });
+
+  it('keeps a v5 book', () => {
+    const v5 = {
+      version: 5,
+      cash: 9,
+      holdings: [{ ticker: 'MSFT', shares: 1, entryPrice: 400 }],
+      ledger: [],
+      stops: [],
+    };
+    const book = migratePortfolio(v5);
+    expect(book.version).toBe(5);
+    expect(book.cash).toBe(9);
+    expect(book.holdings[0].ticker).toBe('MSFT');
+  });
+});
+
+describe('parseBookJson', () => {
+  it('migrates a v4 JSON book', () => {
+    const raw = JSON.stringify({
+      version: 4,
+      cash: 2500,
+      holdings: [{ ticker: 'nvda', shares: 3, entryPrice: 100 }],
+      ledger: [{ side: 'buy', ticker: 'NVDA' }],
+      stops: [{ ticker: 'nvda', kind: 'take_profit', price: 900 }],
+    });
+    const r = parseBookJson(raw);
+    expect(r.ok).toBe(true);
+    expect(r.book.version).toBe(5);
+    expect(r.book.cash).toBe(2500);
+    expect(r.book.holdings).toEqual([{ ticker: 'NVDA', shares: 3, entryPrice: 100 }]);
+    expect(r.book.ledger).toHaveLength(1);
+    expect(r.book.stops).toHaveLength(1);
+    expect(r.book.stops[0].kind).toBe('take_profit');
+  });
+
+  it('rejects invalid JSON and non-books', () => {
+    expect(parseBookJson('{').ok).toBe(false);
+    expect(parseBookJson('not json').error).toMatch(/invalid json/i);
+    expect(parseBookJson('{"foo":1}').ok).toBe(false);
+    expect(parseBookJson(null).ok).toBe(false);
+  });
+
+  it('accepts a v2 holdings array', () => {
+    const r = parseBookJson(JSON.stringify([{ ticker: 'AAPL', shares: 1, entryPrice: 10 }]));
+    expect(r.ok).toBe(true);
+    expect(r.book.holdings[0].ticker).toBe('AAPL');
+    expect(r.book.cash).toBe(STARTING_CASH);
   });
 });
