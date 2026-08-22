@@ -10,16 +10,58 @@ const FILTERS = ['All', 'Buy', 'Hold', 'Sell'];
 
 export default function Community() {
   const navigate = useNavigate();
+  const [posts, setPosts] = useState(communityPosts);
   const [filter, setFilter] = useState('All');
   const [votes, setVotes] = useState({});
   const [showForm, setShowForm] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [draft, setDraft] = useState({ ticker: '', rating: 'Buy', priceTarget: '', title: '', body: '' });
 
-  const visible = communityPosts.filter(
+  const visible = posts.filter(
     (p) => filter === 'All' || p.rating === filter,
   );
 
   const upvote = (id) =>
-    setVotes((v) => ({ ...v, [id]: v[id] ? v[id] + 1 : 1 }));
+    setVotes((current) => ({ ...current, [id]: !current[id] }));
+
+  const updateDraft = (field, value) => setDraft((current) => ({ ...current, [field]: value }));
+
+  const submitAnalysis = (event) => {
+    event.preventDefault();
+    const ticker = draft.ticker.trim().toUpperCase();
+    if (!getStockByTicker(ticker)) {
+      setFormError('Choose a ticker from the demo stock universe.');
+      return;
+    }
+    if (draft.title.trim().length < 8 || draft.body.trim().length < 30) {
+      setFormError('Add a descriptive title and at least 30 characters of analysis.');
+      return;
+    }
+    const priceTarget = draft.priceTarget === '' ? null : Number(draft.priceTarget);
+    if (priceTarget !== null && (!Number.isFinite(priceTarget) || priceTarget <= 0)) {
+      setFormError('Price target must be a positive number.');
+      return;
+    }
+    setPosts((current) => [{
+      id: `local-${Date.now()}`,
+      ticker,
+      rating: draft.rating,
+      priceTarget,
+      title: draft.title.trim(),
+      body: draft.body.trim(),
+      author: 'Demo analyst',
+      avatar: 'DA',
+      avatarColor: '#3b82f6',
+      timestamp: new Date().toISOString(),
+      tags: ['Community submission'],
+      upvotes: 0,
+      comments: 0,
+    }, ...current]);
+    setDraft({ ticker: '', rating: 'Buy', priceTarget: '', title: '', body: '' });
+    setFormError('');
+    setFilter('All');
+    setShowForm(false);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -31,7 +73,7 @@ export default function Community() {
             Community Analysis
           </h1>
           <p className="text-slate-400 text-sm mt-0.5">
-            Crowdsourced investment theses, price targets, and research from {communityPosts.length * 12}+ analysts
+            Explore and draft investment theses against the simulated stock universe
           </p>
         </div>
         <button
@@ -44,45 +86,49 @@ export default function Community() {
 
       {/* New post form */}
       {showForm && (
-        <div className="card p-5 animate-slide-up border-brand-blue/30">
+        <form className="card p-5 animate-slide-up border-brand-blue/30" onSubmit={submitAnalysis}>
           <h2 className="section-title mb-4">
             <PenLine size={15} className="text-brand-blue" /> Submit Analysis
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Ticker</label>
-              <input className="input" placeholder="e.g. NVDA" />
+              <label htmlFor="analysis-ticker" className="block text-xs text-slate-400 mb-1.5">Ticker</label>
+              <input id="analysis-ticker" className="input uppercase" placeholder="e.g. NVDA" value={draft.ticker} onChange={(event) => updateDraft('ticker', event.target.value)} />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Rating</label>
-              <select className="select">
+              <label htmlFor="analysis-rating" className="block text-xs text-slate-400 mb-1.5">Rating</label>
+              <select id="analysis-rating" className="select" value={draft.rating} onChange={(event) => updateDraft('rating', event.target.value)}>
                 <option>Buy</option><option>Hold</option><option>Sell</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1.5">Price Target</label>
-              <input className="input" placeholder="e.g. 500" type="number" />
+              <label htmlFor="analysis-target" className="block text-xs text-slate-400 mb-1.5">Price Target</label>
+              <input id="analysis-target" className="input" placeholder="e.g. 500" type="number" min="0.01" step="any" value={draft.priceTarget} onChange={(event) => updateDraft('priceTarget', event.target.value)} />
             </div>
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-slate-400 mb-1.5">Title</label>
-            <input className="input" placeholder="Compelling investment thesis headline..." />
+            <label htmlFor="analysis-title" className="block text-xs text-slate-400 mb-1.5">Title</label>
+            <input id="analysis-title" className="input" placeholder="Compelling investment thesis headline..." value={draft.title} onChange={(event) => updateDraft('title', event.target.value)} />
           </div>
           <div className="mb-4">
-            <label className="block text-xs text-slate-400 mb-1.5">Analysis</label>
+            <label htmlFor="analysis-body" className="block text-xs text-slate-400 mb-1.5">Analysis</label>
             <textarea
+              id="analysis-body"
               className="input min-h-[120px] resize-none"
               placeholder="Share your research, valuation model, and key catalysts..."
+              value={draft.body}
+              onChange={(event) => updateDraft('body', event.target.value)}
             />
           </div>
           <div className="flex items-center gap-3">
-            <button className="btn-primary">Submit Analysis</button>
-            <button className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+            <button type="submit" className="btn-primary">Publish to this session</button>
+            <button type="button" className="btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
             <span className="text-xs text-slate-500 ml-auto">
-              Analyses are subject to community moderation
+              Demo submission · not sent to a server
             </span>
           </div>
-        </div>
+          {formError && <p role="alert" className="mt-3 text-xs font-medium text-brand-red">{formError}</p>}
+        </form>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -113,7 +159,7 @@ export default function Community() {
 
           {visible.map((post) => {
             const stock = getStockByTicker(post.ticker);
-            const extraVotes = votes[post.id] || 0;
+            const hasVoted = Boolean(votes[post.id]);
             return (
               <article key={post.id} className="card p-5 card-hover">
                 {/* Post header */}
@@ -180,16 +226,17 @@ export default function Community() {
                     onClick={() => upvote(post.id)}
                     className={clsx(
                       'flex items-center gap-1.5 font-semibold transition-colors',
-                      extraVotes > 0 ? 'text-brand-green' : 'text-slate-400 hover:text-brand-green',
+                      hasVoted ? 'text-brand-green' : 'text-slate-400 hover:text-brand-green',
                     )}
+                    aria-pressed={hasVoted}
                   >
                     <ThumbsUp size={13} />
-                    {post.upvotes + extraVotes} upvotes
+                    {post.upvotes + (hasVoted ? 1 : 0)} upvotes
                   </button>
-                  <button className="flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition-colors">
+                  <span className="flex items-center gap-1.5 text-slate-400">
                     <MessageSquare size={13} />
                     {post.comments} comments
-                  </button>
+                  </span>
                   {stock && (
                     <div className="ml-auto flex items-center gap-2 text-slate-500">
                       <span>${stock.price.toFixed(2)}</span>
@@ -266,6 +313,9 @@ export default function Community() {
             Community analyses are for educational purposes only. Not financial advice. Past accuracy does not guarantee future performance. Always do your own research.
           </div>
         </div>
+      </div>
+      <div className="data-notice">
+        Community profiles, activity, performance claims, and platform statistics are simulated. New analyses and votes last for the current browser session only.
       </div>
     </div>
   );

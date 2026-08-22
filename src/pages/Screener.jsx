@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { SlidersHorizontal, Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown } from 'lucide-react';
-import { stocks, sectors } from '../data/stocks';
+import { Link } from 'react-router-dom';
+import { SlidersHorizontal, Search, ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Download, Star, Sparkles } from 'lucide-react';
+import { DATA_AS_OF, stocks, sectors } from '../data/stocks';
+import { useResearch } from '../context/ResearchContext';
 import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import { FactorBar } from '../components/common/FactorBar';
@@ -41,8 +42,17 @@ const COLS = [
   { key: 'chart', label: '30D', align: 'center' },
 ];
 
+function SortIcon({ column, activeColumn, direction }) {
+  if (activeColumn !== column) {
+    return <ArrowUpDown size={12} className="ml-0.5 text-slate-600" />;
+  }
+  return direction === 'asc'
+    ? <ArrowUp size={12} className="ml-0.5 text-brand-blue" />
+    : <ArrowDown size={12} className="ml-0.5 text-brand-blue" />;
+}
+
 export default function Screener() {
-  const navigate = useNavigate();
+  const { watchlist, toggleWatchlist } = useResearch();
 
   const [query, setQuery] = useState('');
   const [sector, setSector] = useState('All');
@@ -89,17 +99,52 @@ export default function Screener() {
     else { setSortKey(key); setSortDir('desc'); }
   };
 
-  const SortIcon = ({ col }) => {
-    if (sortKey !== col) return <ArrowUpDown size={12} className="text-slate-600 ml-0.5" />;
-    return sortDir === 'asc'
-      ? <ArrowUp size={12} className="text-brand-blue ml-0.5" />
-      : <ArrowDown size={12} className="text-brand-blue ml-0.5" />;
+  const resetFilters = () => {
+    setQuery('');
+    setSector('All');
+    setMcap(0);
+    setMinGrade('All');
+    setMinScore(0);
+  };
+
+  const applyPreset = (preset) => {
+    resetFilters();
+    if (preset === 'quality') {
+      setMinGrade('A-');
+      setMinScore(3.8);
+      setSortKey('profitability');
+    } else if (preset === 'growth') {
+      setMinScore(3.4);
+      setSortKey('growth');
+    } else if (preset === 'value') {
+      setMinScore(2.5);
+      setSortKey('value');
+    }
+    setSortDir('desc');
+  };
+
+  const exportCsv = () => {
+    const headers = ['Ticker', 'Company', 'Sector', 'Price', 'Daily change %', 'Quant grade', 'Quant score', 'Value', 'Growth', 'Momentum', 'Profitability', 'Revisions', 'Market cap', 'P/E', 'Dividend yield %'];
+    const rows = filtered.map((stock) => [
+      stock.ticker, stock.name, stock.sector, stock.price, stock.changePercent,
+      stock.quantGrade, stock.quantScore, stock.factors.value, stock.factors.growth,
+      stock.factors.momentum, stock.factors.profitability, stock.factors.revisions,
+      stock.marketCap, stock.pe, stock.dividendYield,
+    ]);
+    const escape = (value) => `"${String(value).replaceAll('"', '""')}"`;
+    const csv = [headers, ...rows].map((row) => row.map(escape).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `alpharank-screen-${DATA_AS_OF}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-100 flex items-center gap-2">
             <SlidersHorizontal size={22} className="text-brand-blue" />
@@ -109,18 +154,32 @@ export default function Screener() {
             Filter and rank {stocks.length} stocks by quant factors, valuation, and momentum
           </p>
         </div>
-        <button
-          onClick={() => setShowFilters((f) => !f)}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <SlidersHorizontal size={14} />
-          {showFilters ? 'Hide' : 'Show'} Filters
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={exportCsv} className="btn-secondary flex items-center gap-2" disabled={!filtered.length}>
+            <Download size={14} /> Export CSV
+          </button>
+          <button
+            onClick={() => setShowFilters((f) => !f)}
+            className="btn-secondary flex items-center gap-2"
+            aria-expanded={showFilters}
+          >
+            <SlidersHorizontal size={14} />
+            {showFilters ? 'Hide' : 'Show'} Filters
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       {showFilters && (
-        <div className="card p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 animate-slide-up">
+        <div className="card p-5 animate-slide-up">
+          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-navy-700 pb-4">
+            <span className="mr-1 flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Sparkles size={13} /> Quick screens</span>
+            <button className="filter-chip" onClick={() => applyPreset('quality')}>Quality leaders</button>
+            <button className="filter-chip" onClick={() => applyPreset('growth')}>Growth at quality</button>
+            <button className="filter-chip" onClick={() => applyPreset('value')}>Value candidates</button>
+            <button className="ml-auto text-xs text-slate-500 transition-colors hover:text-slate-200" onClick={resetFilters}>Reset all</button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <div>
             <label className="block text-xs text-slate-400 mb-1.5">Search</label>
             <div className="relative">
@@ -172,6 +231,7 @@ export default function Screener() {
               <span>0</span><span>2.5</span><span>5</span>
             </div>
           </div>
+          </div>
         </div>
       )}
 
@@ -182,7 +242,7 @@ export default function Screener() {
         </span>
         {filtered.length !== stocks.length && (
           <button
-            onClick={() => { setQuery(''); setSector('All'); setMcap(0); setMinGrade('All'); setMinScore(0); }}
+            onClick={resetFilters}
             className="text-xs text-blue-400 hover:text-blue-300"
           >
             Clear filters
@@ -199,17 +259,27 @@ export default function Screener() {
                 {COLS.map((col) => (
                   <th
                     key={col.key}
-                    onClick={() => col.key !== 'chart' && toggleSort(col.key)}
+                    aria-sort={sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
                     className={clsx(
                       'px-3 py-3 font-medium select-none',
                       col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left',
-                      col.key !== 'chart' && 'cursor-pointer hover:text-slate-300 transition-colors',
                     )}
                   >
-                    <span className="inline-flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      disabled={col.key === 'chart'}
+                      onClick={() => col.key !== 'chart' && toggleSort(col.key)}
+                      className="inline-flex items-center gap-0.5 disabled:cursor-default disabled:opacity-100"
+                    >
                       {col.label}
-                      {col.key !== 'chart' && <SortIcon col={col.key} />}
-                    </span>
+                      {col.key !== 'chart' && (
+                        <SortIcon
+                          column={col.key}
+                          activeColumn={sortKey}
+                          direction={sortDir}
+                        />
+                      )}
+                    </button>
                   </th>
                 ))}
               </tr>
@@ -221,11 +291,20 @@ export default function Screener() {
                   <tr
                     key={s.ticker}
                     className="table-row text-sm border-b border-navy-700/50"
-                    onClick={() => navigate(`/stock/${s.ticker}`)}
                   >
                     <td className="px-3 py-3">
-                      <div className="font-bold text-slate-200">{s.ticker}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className={clsx('icon-button h-7 w-7', watchlist.includes(s.ticker) ? 'text-brand-yellow' : 'text-slate-600 hover:text-brand-yellow')}
+                          aria-label={`${watchlist.includes(s.ticker) ? 'Remove' : 'Add'} ${s.ticker} ${watchlist.includes(s.ticker) ? 'from' : 'to'} watchlist`}
+                          aria-pressed={watchlist.includes(s.ticker)}
+                          onClick={(event) => { event.stopPropagation(); toggleWatchlist(s.ticker); }}
+                        ><Star size={13} fill={watchlist.includes(s.ticker) ? 'currentColor' : 'none'} /></button>
+                        <Link className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue" to={`/stock/${s.ticker}`}>
+                          <div className="font-bold text-slate-200">{s.ticker}</div>
+                          <div className="text-xs text-slate-500 truncate max-w-[120px]">{s.name}</div>
+                        </Link>
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-right font-mono font-semibold text-slate-200">
                       ${s.price.toFixed(2)}
@@ -275,6 +354,9 @@ export default function Screener() {
             </tbody>
           </table>
         </div>
+      </div>
+      <div className="data-notice">
+        Screener results use a deterministic sample universe as of {DATA_AS_OF}. Exported rows reflect the current filters and sort order.
       </div>
     </div>
   );

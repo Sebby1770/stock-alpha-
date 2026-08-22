@@ -19,6 +19,21 @@
     min-height: 100vh;
   }
 
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -48,7 +63,7 @@
   }
 
   .btn-primary {
-    @apply bg-brand-blue hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
+    @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm;
   }
 
   .btn-secondary {
@@ -87,6 +102,71 @@
     @apply text-base font-semibold text-slate-200 flex items-center gap-2;
   }
 
+  .page-title {
+    @apply mt-1 text-3xl font-extrabold tracking-tight text-slate-100;
+  }
+
+  .page-subtitle {
+    @apply mt-1 max-w-2xl text-sm leading-relaxed text-slate-400;
+  }
+
+  .eyebrow {
+    @apply flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-brand-blue;
+  }
+
+  .metric-card {
+    @apply card flex min-h-[112px] flex-col p-4;
+  }
+
+  .metric-label {
+    @apply text-xs font-medium text-slate-400;
+  }
+
+  .metric-value {
+    @apply mt-2 font-mono text-2xl font-extrabold text-slate-100;
+  }
+
+  .metric-note {
+    @apply mt-auto pt-1 text-xs text-slate-400;
+  }
+
+  .stock-mark {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-navy-500 bg-gradient-to-br from-brand-blue/25 to-brand-purple/15 text-xs font-extrabold text-blue-300;
+  }
+
+  .icon-button {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-navy-600;
+  }
+
+  .empty-state {
+    @apply card flex min-h-[320px] flex-col items-center justify-center gap-3 border-dashed p-8 text-center text-slate-500;
+  }
+
+  .empty-state h2 {
+    @apply text-lg font-bold text-slate-200;
+  }
+
+  .empty-state p {
+    @apply max-w-md text-sm leading-relaxed;
+  }
+
+  .data-notice {
+    @apply flex items-start gap-2 rounded-xl border border-navy-600 bg-navy-800/50 p-3 text-xs leading-relaxed text-slate-400;
+  }
+
+  .comparison-chip {
+    @apply inline-flex h-9 items-center gap-2 rounded-lg border border-navy-500 bg-navy-700 px-3 text-sm font-bold text-slate-200;
+    box-shadow: inset 2px 0 0 var(--chip-color);
+  }
+
+  .comparison-chip button {
+    @apply ml-1 text-slate-500 transition-colors hover:text-slate-200;
+  }
+
+  .filter-chip {
+    @apply rounded-full border border-navy-500 bg-navy-700 px-3 py-1.5 text-xs font-semibold text-slate-400 transition-colors hover:border-brand-blue/40 hover:text-blue-300;
+  }
+
   .positive {
     @apply text-brand-green;
   }
@@ -107,6 +187,21 @@
 
   .ticker-tape:hover {
     animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .ticker-tape {
+      animation: none;
+    }
   }
 
   .glow-card {

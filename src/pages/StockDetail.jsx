@@ -2,10 +2,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   ArrowLeft, TrendingUp, TrendingDown, Target, Users,
-  BarChart2, DollarSign, Star, ChevronUp, ChevronDown,
+  BarChart2, DollarSign, Star, ChevronUp, ChevronDown, Scale, Briefcase,
 } from 'lucide-react';
-import { getStockByTicker } from '../data/stocks';
+import { DATA_AS_OF, getStockByTicker } from '../data/stocks';
 import { communityPosts } from '../data/community';
+import { useResearch } from '../context/ResearchContext';
 import QuantGrade from '../components/common/QuantGrade';
 import { FactorScores } from '../components/common/FactorBar';
 import clsx from 'clsx';
@@ -52,6 +53,7 @@ export default function StockDetail() {
   const { ticker } = useParams();
   const navigate = useNavigate();
   const stock = getStockByTicker(ticker);
+  const { watchlist, toggleWatchlist } = useResearch();
   const [period, setPeriod] = useState('3M');
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -70,8 +72,14 @@ export default function StockDetail() {
   const pos = stock.changePercent >= 0;
 
   // Slice price history by period
-  const periodDays = { '1M': 21, '3M': 63, '6M': 126, 'YTD': 85, '1Y': 252 };
-  const chartData = stock.priceHistory.slice(-Math.min(periodDays[period], stock.priceHistory.length));
+  const periodDays = { '1M': 21, '3M': 63, '6M': 126, '1Y': 252 };
+  const chartData = period === 'YTD'
+    ? stock.priceHistory.filter((point) => point.date >= `${DATA_AS_OF.slice(0, 4)}-01-01`)
+    : stock.priceHistory.slice(-Math.min(periodDays[period], stock.priceHistory.length));
+  const periodReturn = chartData.length > 1
+    ? ((chartData.at(-1).price - chartData[0].price) / chartData[0].price) * 100
+    : 0;
+  const periodPositive = periodReturn >= 0;
 
   // Radar data
   const radarData = [
@@ -91,16 +99,34 @@ export default function StockDetail() {
   const sellPct = ((stock.community.sell / communityTotal) * 100).toFixed(0);
 
   const upside = (((stock.priceTarget - stock.price) / stock.price) * 100).toFixed(1);
+  const isWatched = watchlist.includes(stock.ticker);
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Back */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-      >
-        <ArrowLeft size={16} /> Back
-      </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className={clsx('btn-secondary flex items-center gap-2', isWatched && 'border-brand-yellow/40 text-brand-yellow')}
+            aria-pressed={isWatched}
+            onClick={() => toggleWatchlist(stock.ticker)}
+          >
+            <Star size={14} fill={isWatched ? 'currentColor' : 'none'} /> {isWatched ? 'Watching' : 'Watch'}
+          </button>
+          <button className="btn-secondary flex items-center gap-2" onClick={() => navigate(`/compare?symbols=${stock.ticker}`)}>
+            <Scale size={14} /> Compare
+          </button>
+          <button className="btn-primary flex items-center gap-2" onClick={() => navigate(`/portfolio?add=${stock.ticker}`)}>
+            <Briefcase size={14} /> Add position
+          </button>
+        </div>
+      </div>
 
       {/* Hero header */}
       <div className="card p-6 glow-card">
@@ -132,7 +158,7 @@ export default function StockDetail() {
               {pos ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               {pos ? '+' : ''}{fmt(stock.change)} ({pos ? '+' : ''}{fmt(stock.changePercent)}%)
             </div>
-            <p className="text-xs text-slate-500 mt-1">Simulated • Delayed 15min</p>
+            <p className="text-xs text-slate-500 mt-1">Simulated dataset • As of {DATA_AS_OF}</p>
           </div>
 
           {/* Right: analyst target */}
@@ -173,6 +199,7 @@ export default function StockDetail() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
+            aria-pressed={activeTab === tab}
             className={clsx(
               'px-4 py-2.5 text-sm font-medium capitalize transition-colors border-b-2 -mb-px',
               activeTab === tab
@@ -193,11 +220,16 @@ export default function StockDetail() {
               <h2 className="section-title">
                 <TrendingUp size={16} className="text-brand-blue" /> Price Chart
               </h2>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-2">
+                <span className={clsx('hidden font-mono text-xs font-semibold sm:block', periodPositive ? 'text-brand-green' : 'text-brand-red')}>
+                  {periodPositive ? '+' : ''}{periodReturn.toFixed(2)}%
+                </span>
+                <div className="flex gap-1" aria-label="Chart period">
                 {PERIODS.map((p) => (
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
+                    aria-pressed={period === p}
                     className={clsx(
                       'px-2.5 py-1 text-xs rounded font-medium transition-colors',
                       period === p
@@ -208,14 +240,15 @@ export default function StockDetail() {
                     {p}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={pos ? '#10b981' : '#ef4444'} stopOpacity={0.2} />
-                    <stop offset="95%" stopColor={pos ? '#10b981' : '#ef4444'} stopOpacity={0} />
+                    <stop offset="5%" stopColor={periodPositive ? '#10b981' : '#ef4444'} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={periodPositive ? '#10b981' : '#ef4444'} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(36,54,89,0.5)" />
@@ -245,11 +278,11 @@ export default function StockDetail() {
                 <Area
                   type="monotone"
                   dataKey="price"
-                  stroke={pos ? '#10b981' : '#ef4444'}
+                  stroke={periodPositive ? '#10b981' : '#ef4444'}
                   strokeWidth={2}
                   fill="url(#priceGrad)"
                   dot={false}
-                  activeDot={{ r: 4, fill: pos ? '#10b981' : '#ef4444' }}
+                  activeDot={{ r: 4, fill: periodPositive ? '#10b981' : '#ef4444' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -448,6 +481,9 @@ export default function StockDetail() {
           </div>
         </div>
       )}
+      <div className="data-notice">
+        Company metrics, price history, targets, ratings, and community activity are simulated for product demonstration. They are not current quotes or investment recommendations.
+      </div>
     </div>
   );
 }

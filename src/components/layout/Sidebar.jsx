@@ -7,28 +7,30 @@ import {
   Star,
   Settings,
   TrendingUp,
-  Activity,
+  BarChart3,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useResearch } from '../../context/ResearchContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/screener', icon: SlidersHorizontal, label: 'Screener' },
   { to: '/community', icon: Users, label: 'Community' },
   { to: '/portfolio', icon: Briefcase, label: 'Portfolio' },
+  { to: '/watchlist', icon: Star, label: 'Watchlist' },
+  { to: '/compare', icon: BarChart3, label: 'Compare' },
 ];
 
 const secondaryItems = [
-  { to: '#', icon: Star, label: 'Watchlist' },
-  { to: '#', icon: Activity, label: 'Signals' },
   { to: '#', icon: Settings, label: 'Settings' },
 ];
 
 export default function Sidebar() {
+  const { watchlist } = useResearch();
   return (
     <aside className="fixed left-0 top-[88px] bottom-0 w-56 flex flex-col border-r border-navy-600 bg-navy-900/80 backdrop-blur-sm z-40 hidden lg:flex">
       <nav className="flex flex-col p-3 gap-0.5 flex-1">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 py-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-3 py-2">
           Research
         </p>
         {navItems.map(({ to, icon: Icon, label, end }) => (
@@ -49,6 +51,9 @@ export default function Sidebar() {
               <>
                 <Icon size={17} className={isActive ? 'text-brand-blue' : ''} />
                 {label}
+                {label === 'Watchlist' && watchlist.length > 0 && !isActive && (
+                  <span className="ml-auto rounded-full bg-navy-600 px-2 py-0.5 text-[10px] text-slate-400">{watchlist.length}</span>
+                )}
                 {isActive && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-brand-blue" />
                 )}
@@ -59,18 +64,21 @@ export default function Sidebar() {
 
         <div className="my-2 h-px bg-navy-700" />
 
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-3 py-2">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-3 py-2">
           Tools
         </p>
         {secondaryItems.map(({ to, icon: Icon, label }) => (
-          <a
+          <button
             key={label}
-            href={to}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-300 hover:bg-navy-700 transition-all"
+            type="button"
+            disabled
+            title="Settings are not available in this demo"
+            className="flex w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600"
           >
             <Icon size={17} />
             {label}
-          </a>
+            <span className="ml-auto text-[9px] uppercase tracking-wider">Soon</span>
+          </button>
         ))}
       </nav>
 
@@ -82,11 +90,11 @@ export default function Sidebar() {
             AlphaRank Pro
           </div>
           <p className="text-slate-400 leading-relaxed">
-            Unlock real-time data, advanced screener, and earnings call transcripts.
+            This open demo uses deterministic sample data. Connect a licensed market-data provider before production use.
           </p>
-          <button className="mt-2.5 w-full btn-primary text-xs py-1.5">
-            Upgrade Free
-          </button>
+          <div className="mt-2.5 rounded-md bg-navy-800/70 px-2 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wider text-blue-300">
+            Demo workspace
+          </div>
         </div>
       </div>
     </aside>

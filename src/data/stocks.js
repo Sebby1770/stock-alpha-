@@ -1,3 +1,7 @@
+// The demo dataset is intentionally deterministic so screenshots, tests, and
+// portfolio calculations do not change between sessions.
+export const DATA_AS_OF = '2026-08-21';
+
 // Seeded RNG for deterministic price history
 const createRng = (seed) => {
   let s = seed >>> 0;
@@ -10,19 +14,20 @@ const createRng = (seed) => {
 const tickerSeed = (ticker) =>
   ticker.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0);
 
-export const generatePriceHistory = (basePrice, ticker, days = 90) => {
+export const generatePriceHistory = (basePrice, ticker, tradingDays = 252) => {
   const rng = createRng(tickerSeed(ticker));
   const history = [];
-  const endDate = new Date('2026-05-02');
+  const endDate = new Date(`${DATA_AS_OF}T12:00:00Z`);
   const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - days);
+  startDate.setUTCDate(startDate.getUTCDate() - Math.ceil(tradingDays * 1.55));
 
   let price = basePrice * (0.80 + rng() * 0.28);
 
-  for (let i = 0; i <= days; i++) {
+  for (let i = 0; ; i++) {
     const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dow = date.getDay();
+    date.setUTCDate(date.getUTCDate() + i);
+    if (date > endDate) break;
+    const dow = date.getUTCDay();
     if (dow === 0 || dow === 6) continue;
 
     const drift = 0.0003;
@@ -41,7 +46,19 @@ export const generatePriceHistory = (basePrice, ticker, days = 90) => {
       volume: Math.floor(rng() * 60000000 + 4000000),
     });
   }
-  return history;
+
+  // Preserve the declared quote as the final close while retaining the seeded
+  // path shape. This avoids a subtle mismatch between source data and UI price.
+  const windowedHistory = history.slice(-tradingDays);
+  const finalPrice = windowedHistory.at(-1)?.price || basePrice;
+  const scale = basePrice / finalPrice;
+  return windowedHistory.map((point) => ({
+    ...point,
+    price: Math.round(point.price * scale * 100) / 100,
+    open: Math.round(point.open * scale * 100) / 100,
+    high: Math.round(point.high * scale * 100) / 100,
+    low: Math.round(point.low * scale * 100) / 100,
+  }));
 };
 
 export const gradeFromScore = (score) => {
@@ -351,9 +368,11 @@ const raw = [
 export const stocks = raw.map((s) => {
   const quantScore = Math.round(calcQuantScore(s.factors) * 100) / 100;
   const quantGrade = gradeFromScore(quantScore);
-  const priceHistory = generatePriceHistory(s.price, s.ticker, 90);
+  const priceHistory = generatePriceHistory(s.price, s.ticker);
   const lastClose = priceHistory[priceHistory.length - 1]?.price ?? s.price;
   const prevClose = priceHistory[priceHistory.length - 2]?.price ?? s.price;
+  const weekHigh52 = Math.max(...priceHistory.map((point) => point.high));
+  const weekLow52 = Math.min(...priceHistory.map((point) => point.low));
   const change = Math.round((lastClose - prevClose) * 100) / 100;
   const changePercent = Math.round((change / prevClose) * 10000) / 100;
 
@@ -363,6 +382,8 @@ export const stocks = raw.map((s) => {
     quantGrade,
     priceHistory,
     price: lastClose,
+    weekHigh52,
+    weekLow52,
     change,
     changePercent,
   };

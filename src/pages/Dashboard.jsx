@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, Zap, Users, BarChart2,
-  ArrowUpRight, Newspaper, ChevronRight,
+  ArrowUpRight, Newspaper, ChevronRight, Star, Briefcase, Scale,
 } from 'lucide-react';
 import { stocks } from '../data/stocks';
 import { sectorPerformance, marketNews, indices } from '../data/market';
@@ -11,6 +11,8 @@ import StockCard from '../components/common/StockCard';
 import QuantGrade from '../components/common/QuantGrade';
 import MiniChart from '../components/common/MiniChart';
 import clsx from 'clsx';
+import { useResearch } from '../context/ResearchContext';
+import { buildHoldings, calculatePortfolioAnalytics } from '../lib/portfolio';
 import {
   ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
@@ -50,7 +52,11 @@ function IndexCard({ idx }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { watchlist, positions } = useResearch();
   const [liveIndices, setLiveIndices] = useState(indices.slice(0, 5));
+  const portfolio = calculatePortfolioAnalytics(buildHoldings(positions, stocks));
+  const watched = watchlist.map((ticker) => stocks.find((stock) => stock.ticker === ticker)).filter(Boolean);
+  const strongestWatched = [...watched].sort((a, b) => b.quantScore - a.quantScore)[0];
 
   // Simulate live price ticks
   useEffect(() => {
@@ -88,7 +94,7 @@ export default function Dashboard() {
             AlphaRank Research Platform
           </h1>
           <p className="text-slate-400 text-sm max-w-lg">
-            Factor-based quant ratings, crowdsourced analysis, and institutional-grade screening — built to identify tomorrow's outperformers today.
+            Explore factor ratings, compare companies, screen the sample universe, and model a portfolio in one transparent research workspace.
           </p>
           <div className="flex items-center gap-3 mt-4">
             <button onClick={() => navigate('/screener')} className="btn-primary flex items-center gap-2">
@@ -105,6 +111,31 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+
+      {/* Personal workspace */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="section-title"><Star size={16} className="text-brand-yellow" /> Your workspace</h2>
+          <span className="text-[11px] text-slate-500">Saved locally</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <button onClick={() => navigate('/watchlist')} className="card-hover flex items-center gap-4 p-4 text-left">
+            <div className="stock-mark"><Star size={17} /></div>
+            <div><div className="text-xs text-slate-500">Watchlist</div><div className="mt-0.5 text-sm font-bold text-slate-200">{watchlist.length} companies</div><div className="text-xs text-slate-500">Top score: {strongestWatched?.ticker || '—'}</div></div>
+            <ChevronRight size={15} className="ml-auto text-slate-600" />
+          </button>
+          <button onClick={() => navigate('/portfolio')} className="card-hover flex items-center gap-4 p-4 text-left">
+            <div className="stock-mark"><Briefcase size={17} /></div>
+            <div><div className="text-xs text-slate-500">Model portfolio</div><div className="mt-0.5 text-sm font-bold text-slate-200">{fmtBig(portfolio.totalValue)}</div><div className={clsx('text-xs', portfolio.totalGain >= 0 ? 'text-brand-green' : 'text-brand-red')}>{fmt(portfolio.totalGainPercent)}% total return</div></div>
+            <ChevronRight size={15} className="ml-auto text-slate-600" />
+          </button>
+          <button onClick={() => navigate(`/compare?symbols=${watchlist.slice(0, 4).join(',')}`)} className="card-hover flex items-center gap-4 p-4 text-left">
+            <div className="stock-mark"><Scale size={17} /></div>
+            <div><div className="text-xs text-slate-500">Comparison</div><div className="mt-0.5 text-sm font-bold text-slate-200">Decision scorecard</div><div className="text-xs text-slate-500">Compare up to four stocks</div></div>
+            <ChevronRight size={15} className="ml-auto text-slate-600" />
+          </button>
+        </div>
+      </section>
 
       {/* Market indices */}
       <section>
